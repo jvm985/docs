@@ -54,7 +54,6 @@ class RCompiler implements CompilerInterface
 
     private function generateWrapper($sessionFile): string
     {
-        // We use .app_ internally to stay hidden from ls()
         return "
 options(warn=-1)
 library(jsonlite)
@@ -63,44 +62,44 @@ if (file.exists('{$sessionFile}')) {
     load('{$sessionFile}', envir = .GlobalEnv)
 }
 
+# RADICAL CLEANUP of ANY internal variable names that might have leaked
+.internal_names <- c('i', 'exprs', 'config', 'code_text', 'expr', 'res', 'out', 'out_lines', 'tmp_out_file', 'val', 'code_to_run', 'run_with_capture', 'structured_output', 'app_out', 'app_res', 'app_l', 'app_tmp', 'app_val', 'app_eval_res', 'app_captured', 'app_res_lines', 'app_user_vars', 'app_var_data', 'code_lines', 'tmp_out', 'captured', 'var_metadata', 'f', 'line', 'lines', 'res_lines', 'app_internal_env', 'curr', 'txt', 'tmpf', 'cap', 'var_list', 'v')
+rm(list = intersect(.internal_names, ls(envir = .GlobalEnv, all.names = TRUE)), envir = .GlobalEnv)
+
 png('plot_%03d.png')
 
-.app_out <- list()
+.app_structured_output <- list()
 
 tryCatch({
-    # Parse the code into expressions
     .app_exprs <- parse('user_code.R')
-    
     if (length(.app_exprs) > 0) {
         for (.app_i in seq_along(.app_exprs)) {
-            .app_curr <- .app_exprs[.app_i]
+            .app_curr_expr <- .app_exprs[.app_i]
             
-            # Record code line
-            .app_text <- paste(deparse(.app_curr[[1]]), collapse='\\n')
-            .app_out <- c(.app_out, list(list(type='code', content=.app_text)))
+            # Record code
+            .app_code_text <- paste(deparse(.app_curr_expr[[1]]), collapse='\\n')
+            .app_structured_output <- c(.app_structured_output, list(list(type='code', content=.app_code_text)))
             
             # Capture output
-            .app_tmp <- tempfile()
-            sink(.app_tmp)
+            .app_tmpf <- tempfile()
+            sink(.app_tmpf)
             tryCatch({
-                .app_res <- withVisible(eval(.app_curr, envir = .GlobalEnv))
-                if (.app_res\$visible) {
-                    print(.app_res\$value)
-                }
+                .app_res_obj <- withVisible(eval(.app_curr_expr, envir = .GlobalEnv))
+                if (.app_res_obj\$visible) print(.app_res_obj\$value)
             }, error = function(e) {
                 cat('Error:', e\$message, '\\n')
             })
             sink()
             
-            .app_captured <- readLines(.app_tmp)
-            if (length(.app_captured) > 0) {
-                .app_out <- c(.app_out, list(list(type='output', content=paste(.app_captured, collapse='\\n'))))
+            .app_res_lines <- readLines(.app_tmpf)
+            if (length(.app_res_lines) > 0) {
+                .app_structured_output <- c(.app_structured_output, list(list(type='output', content=paste(.app_res_lines, collapse='\\n'))))
             }
-            unlink(.app_tmp)
+            unlink(.app_tmpf)
         }
     }
 }, error = function(e) {
-    .app_out <- c(.app_out, list(list(type='error', content=e\$message)))
+    .app_structured_output <- c(.app_structured_output, list(list(type='error', content=e\$message)))
 })
 
 dev.off()
@@ -110,16 +109,16 @@ dev.off()
 save(list = .app_user_vars, file = '{$sessionFile}', envir = .GlobalEnv)
 
 # Prepare variable metadata
-.app_var_data <- lapply(.app_user_vars, function(x) {
-    .app_v <- get(x, envir = .GlobalEnv)
+.app_var_metadata <- lapply(.app_user_vars, function(x) {
+    .app_val_obj <- get(x, envir = .GlobalEnv)
     list(
         name = x, 
-        type = class(.app_v)[1], 
-        value = paste(capture.output(print(.app_v)), collapse='\\n')
+        type = class(.app_val_obj)[1], 
+        value = paste(capture.output(print(.app_val_obj)), collapse='\\n')
     )
 })
 
-write_json(list(output=.app_out, variables=.app_var_data), 'result.json', auto_unbox = TRUE)
+write_json(list(output=.app_structured_output, variables=.app_var_metadata), 'result.json', auto_unbox = TRUE)
 ";
     }
 

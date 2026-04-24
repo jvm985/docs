@@ -85,6 +85,13 @@ class AuditCompilers extends Command
                 $this->error("  [FAIL] R ran but structured_output is EMPTY");
                 $this->line("  Raw Output: " . $content->output);
             }
+
+            if (isset($content->result['variables']) && count($content->result['variables']) > 0) {
+                $this->info("  [OK] Variables captured (" . count($content->result['variables']) . ")");
+                foreach ($content->result['variables'] as $var) {
+                    $this->line("    <fg=yellow>{$var['name']}</> ({$var['type']}): " . \Illuminate\Support\Str::limit($var['value'], 40));
+                }
+            }
         } else {
             $this->error("  [FAIL] Unexpected response type: " . $content->type);
             $this->line("  Raw Output: " . ($content->output ?? 'NULL'));

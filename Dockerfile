@@ -66,7 +66,7 @@ RUN composer install --no-interaction --optimize-autoloader --no-dev
 RUN npm install && npm run build
 
 # Adjust permissions
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public
 
 EXPOSE 9000
 CMD ["php-fpm"]

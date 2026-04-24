@@ -6,14 +6,21 @@ services:
     container_name: docs-app
     restart: always
     environment:
+      - APP_NAME=Docs
       - APP_ENV=production
       - APP_DEBUG=false
+      - APP_URL=https://docs.irishof.cloud
+      - APP_KEY=${APP_KEY}
       - DB_CONNECTION=pgsql
       - DB_HOST=db
       - DB_PORT=5432
       - DB_DATABASE=docs
       - DB_USERNAME=docs_user
       - DB_PASSWORD=docs_password
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=https://docs.irishof.cloud/auth/google/callback
+      - SESSION_DRIVER=database
     volumes:
       - .:/var/www
       - /var/www/vendor

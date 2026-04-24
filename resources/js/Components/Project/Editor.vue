@@ -5,12 +5,12 @@ import { markdown } from '@codemirror/lang-markdown';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { xml } from '@codemirror/lang-xml';
-// import { typst } from 'codemirror-lang-typst';
 import { keymap } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
 import { StreamLanguage } from "@codemirror/language";
 import { r } from "@codemirror/legacy-modes/mode/r";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
+import { typstLanguage } from "../../typst-lang";
 
 const props = defineProps({
     file: Object,
@@ -49,7 +49,7 @@ const getExtensions = (extension) => {
     
     const e = extension.toLowerCase();
     if (e === 'md' || e === 'rmd') extensions.push(markdown());
-    if (e === 'typ') extensions.push(StreamLanguage.define(stex));
+    if (e === 'typ') extensions.push(typstLanguage);
     if (e === 'js') extensions.push(javascript());
     if (e === 'json') extensions.push(json());
     if (e === 'xml') extensions.push(xml());

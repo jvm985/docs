@@ -121,10 +121,8 @@ onMounted(() => {
                 <span class="text-sm font-mono font-bold">{{ file?.name }}</span>
             </div>
             <div class="flex gap-4 items-center">
-                <span class="text-[10px] text-blue-500 font-bold font-mono px-2 py-0.5 bg-blue-50 rounded border border-blue-200">💎 DIAMOND-V12-FINAL</span>
 
                 <!-- Compiler Selector for LaTeX -->
-
                 <div v-if="ext === 'tex'" class="flex items-center gap-2">
                     <span class="text-xs text-gray-500 uppercase font-bold">Engine:</span>
                     <select 

@@ -18,8 +18,7 @@ class CompileFileAction
             mkdir($workspaceDir, 0777, true);
         }
 
-        // Zorg dat de map van de huidige gebruiker ALTIJD de laatste versie heeft van alle bestanden
-        // waar hij toegang toe heeft (eigen, gedeeld en publiek).
+        // Zorg dat de map van de huidige gebruiker ALTIJD alle bestanden heeft waar hij toegang toe heeft
         $this->syncUserWorkspace(auth()->user(), $workspaceDir);
         
         $compiler = CompilerFactory::make($file);
@@ -29,11 +28,14 @@ class CompileFileAction
 
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
-        // Haal alle projecten op waar deze gebruiker toegang toe heeft
+        // Haal EIGEN projecten op
         $myProjects = $user->projects;
+        // Haal GEDEELDE projecten op (individueel)
         $sharedProjects = $user->sharedProjects;
+        // Haal PUBLIEKE projecten op
         $publicProjects = Project::where('is_public', true)->get();
 
+        // Voeg alles samen tot een unieke lijst van toegankelijke projecten
         $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
 
         foreach ($allAccessibleProjects as $project) {
@@ -56,6 +58,7 @@ class CompileFileAction
 
                     $content = $projectFile->binary_content ?? $projectFile->content;
                     
+                    // Alleen schrijven als de inhoud anders is of het bestand niet bestaat
                     if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
                         file_put_contents($fullPath, $content);
                     }

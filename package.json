@@ -30,7 +30,6 @@
         "axios": "^1.15.2",
         "codemirror": "^6.0.2",
         "vue-codemirror6": "^1.5.1",
-        "vuedraggable": "^4.1.0",
-        "ziggy-js": "^2.6.2"
+        "vuedraggable": "^4.1.0"
     }
 }

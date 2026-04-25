@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     libzip-dev \
     gnupg \
+    libuv1-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    libfontconfig1-dev \
+    libfreetype6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
@@ -25,13 +30,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
 # Install R and dependencies
 RUN apt-get update && apt-get install -y \
     r-base \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install R packages
-RUN Rscript -e "install.packages(c('jsonlite', 'rmarkdown'), repos='https://cloud.r-project.org')"
+# Install R packages (explicitly including dependencies)
+RUN Rscript -e "install.packages(c('jsonlite', 'rmarkdown', 'knitr', 'yaml', 'htmltools', 'caTools', 'bitops'), repos='https://cloud.r-project.org')"
 
 # Install TeX Live and Pandoc
 RUN apt-get update && apt-get install -y \

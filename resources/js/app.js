@@ -5,12 +5,12 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 
-// Gebruik de ZiggyVue van de vendor directory direct, zoals Laravel Breeze dat doet
-import { ZiggyVue } from '../../vendor/tightenco/ziggy/dist/vue.mjs';
+// Gebruik de alias uit vite.config.js
+import { ZiggyVue } from 'ziggy-js/dist/vue.mjs';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-// CRUCIAAL: Voeg een unieke string toe die we kunnen vinden in de bundle
+// Marker voor de Pest test
 window.DOCS_APP_VERSION = 'PEST-V100-REAL';
 
 createInertiaApp({

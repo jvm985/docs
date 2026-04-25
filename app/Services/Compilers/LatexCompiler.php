@@ -14,23 +14,24 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // We draaien de compiler nu vanuit de ROOT van de workspace
-        // De paden worden dan: ProjectNaam/Pad/Naar/Bestand.tex
+        // Werkmap is de ROOT van de workspace
         $workspacePath = $file->project->name . '/' . $file->getPath();
+        
+        // Forceer permissies via een LOKAAL configuratiebestand in de werkmap
+        // TeX Live laadt texmf.cnf uit de huidige map met de hoogste prioriteit
+        file_put_contents($tempDir . '/texmf.cnf', "openout_any = a\nopenin_any = a\n");
         
         $process = Process::path($tempDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
-                'openout_any' => 'a',
-                'openin_any' => 'a'
+                // TEXMFCNF op . zetten dwingt LaTeX om in de huidige map te kijken
+                'TEXMFCNF' => $tempDir . ':',
             ])
-            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" " . escapeshellarg($workspacePath));
+            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($workspacePath));
         
         $output = $process->output() ?: $process->errorOutput();
         
-        // PDF wordt gegenereerd in de workspace root of in de projectmap afhankelijk van pdflatex versie
-        // Maar meestal in de map van het bronbestand: ProjectNaam/Pad/Naar/Bestand.pdf
         $pdfName = pathinfo($workspacePath, PATHINFO_FILENAME) . '.pdf';
         $fullPdfPath = $tempDir . '/' . dirname($workspacePath) . '/' . $pdfName;
         $fullPdfPath = str_replace('/./', '/', $fullPdfPath);

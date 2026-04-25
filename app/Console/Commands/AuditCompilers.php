@@ -21,11 +21,6 @@ class AuditCompilers extends Command
         $user = User::first() ?: User::factory()->create(['email' => 'audit@example.com']);
         auth()->login($user);
 
-        $project = Project::firstOrCreate(
-            ['user_id' => $user->id, 'name' => 'AuditProject'],
-            ['description' => 'Automatic audit project']
-        );
-
         $this->testCrossProjectSharing();
 
         $this->info("\nAudit Complete.");
@@ -33,7 +28,7 @@ class AuditCompilers extends Command
 
     protected function testCrossProjectSharing()
     {
-        $this->comment("\nTesting Cross-Project Sharing with \include (Viewer perspective)...");
+        $this->comment("\nTesting Cross-Project Sharing with '5 geschiedenis.tex' (Viewer perspective)...");
 
         // 1. Setup two users
         $owner = User::create([
@@ -47,26 +42,26 @@ class AuditCompilers extends Command
             'password' => bcrypt('password')
         ]);
 
-        // 2. Setup Project A (The dependency)
-        $projectA = Project::create(['name' => 'shared_lib', 'user_id' => $owner->id]);
-        $projectA->files()->create([
-            'name' => 'header.tex',
+        // 2. Setup Project BBB (The dependency)
+        $projectBBB = Project::create(['name' => 'bbb', 'user_id' => $owner->id]);
+        $projectBBB->files()->create([
+            'name' => 'napoleon.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => 'DEFINED_IN_SHARED_LIB'
+            'content' => 'Napoleon was hier in BBB.'
         ]);
 
-        // 3. Setup Project B (The main project)
-        $projectB = Project::create(['name' => 'main_doc', 'user_id' => $owner->id]);
-        $mainFile = $projectB->files()->create([
-            'name' => 'main.tex',
+        // 3. Setup Project AAA (The main project)
+        $projectAAA = Project::create(['name' => 'aaa', 'user_id' => $owner->id]);
+        $mainFile = $projectAAA->files()->create([
+            'name' => '5 geschiedenis.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => "\\documentclass{article}\n\\begin{document}\nInclude test: \\include{../shared_lib/header}\n\\end{document}"
+            'content' => "\\documentclass{article}\n\\begin{document}\nHoofdtest: \\include{../bbb/napoleon}\n\\end{document}"
         ]);
 
-        // 4. Share Project B with Viewer
-        $projectB->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
+        // 4. Share Project AAA with Viewer
+        $projectAAA->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
 
         // 5. Compile as Viewer
         $this->info("  -> Attempting compile as Viewer (ID: {$viewer->id})...");
@@ -76,9 +71,9 @@ class AuditCompilers extends Command
         try {
             $res = $action->execute($mainFile);
             if ($res['type'] === 'pdf') {
-                $this->info("  [OK] Cross-project \include SUCCESSFUL for Viewer.");
+                $this->info("  [OK] '5 geschiedenis.tex' compilation SUCCESSFUL for Viewer.");
             } else {
-                $this->error("  [FAIL] Cross-project \include FAILED.");
+                $this->error("  [FAIL] Compilation FAILED.");
                 $this->line("  Raw Output: " . $res['output']);
             }
         } catch (\Exception $e) {
@@ -86,8 +81,8 @@ class AuditCompilers extends Command
         }
 
         // Cleanup
-        $projectA->delete();
-        $projectB->delete();
+        $projectBBB->delete();
+        $projectAAA->delete();
         $owner->delete();
         $viewer->delete();
     }

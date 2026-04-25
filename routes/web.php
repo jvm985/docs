@@ -13,7 +13,7 @@ Route::get('/', function () {
 });
 
 Route::get('auth/google', [GoogleAuthController::class, 'redirectToGoogle'])->name('google.login');
-Route::get('auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+Route::get('auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('google.callback');
 
 Route::get('/dev-login', function () {
     $user = \App\Models\User::where('email', 'demo@example.com')->first();

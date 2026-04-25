@@ -30,8 +30,8 @@ foreach ($docsRaw as $line) {
 
 $userFilesPath = "/var/www/old_user_files";
 
-// 2. GLOBAL INDEX BOUWEN (Voor linked files)
-$globalIndex = []; // Key: "project_id:path", Value: content (string of binary)
+// 2. GLOBAL INDEX BOUWEN (Voor alle bestanden in alle projecten)
+$globalIndex = []; 
 $projectIdToName = [];
 
 foreach ($projectsRaw as $line) {
@@ -44,17 +44,17 @@ foreach ($projectsRaw as $line) {
         if (isset($folder['docs'])) {
             foreach ($folder['docs'] as $doc) {
                 $id = $doc['_id']['$oid'] ?? (string)$doc['_id'];
-                $path = $currentPath . "/" . $doc['name'];
-                $globalIndex["$pid:$path"] = $docsLookup[$id] ?? "";
+                $path = ltrim($currentPath . "/" . $doc['name'], '/');
+                $globalIndex["$pid:$path"] = ['type' => 'text', 'content' => $docsLookup[$id] ?? ""];
             }
         }
         if (isset($folder['fileRefs'])) {
             foreach ($folder['fileRefs'] as $f) {
                 $id = $f['_id']['$oid'] ?? (string)$f['_id'];
-                $path = $currentPath . "/" . $f['name'];
+                $path = ltrim($currentPath . "/" . $f['name'], '/');
                 $filePath = $userFilesPath . "/" . $id;
                 if (file_exists($filePath)) {
-                    $globalIndex["$pid:$path"] = file_get_contents($filePath);
+                    $globalIndex["$pid:$path"] = ['type' => 'binary', 'content' => file_get_contents($filePath)];
                 }
             }
         }
@@ -97,18 +97,18 @@ function importFolderRecursive($mongoFolder, $projectId, $docsLookup, $userFiles
             // Is dit een LINK?
             if (isset($f['linkedFileData']['source_project_id'])) {
                 $sourcePid = $f['linkedFileData']['source_project_id']['$oid'] ?? (string)$f['linkedFileData']['source_project_id'];
-                $sourcePath = $f['linkedFileData']['source_entity_path'];
+                $sourcePath = ltrim($f['linkedFileData']['source_entity_path'], '/');
                 
                 if (isset($globalIndex["$sourcePid:$sourcePath"])) {
                     $data = $globalIndex["$sourcePid:$sourcePath"];
-                    // Is het een tekstbestand?
-                    $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-                    if (in_array($ext, ['tex', 'sty', 'cls', 'txt', 'bib', 'config'])) {
-                        $text = $data;
+                    if ($data['type'] === 'text') {
+                        $text = $data['content'];
                     } else {
-                        $binary = $data;
+                        $binary = $data['content'];
                     }
                     echo "🔗 Resolved link: {$f['name']} from project {$sourcePid}\n";
+                } else {
+                    echo "❌ Failed to resolve link: {$f['name']} (Path: $sourcePath in Project: $sourcePid)\n";
                 }
             } else {
                 // Gewoon lokaal bestand
@@ -116,6 +116,8 @@ function importFolderRecursive($mongoFolder, $projectId, $docsLookup, $userFiles
                 $filePath = $userFilesPath . "/" . $id;
                 if (file_exists($filePath)) {
                     $binary = file_get_contents($filePath);
+                } else {
+                    echo "⚠️ Missing physical file: {$f['name']} (ID: $id)\n";
                 }
             }
 
@@ -141,7 +143,7 @@ function importFolderRecursive($mongoFolder, $projectId, $docsLookup, $userFiles
 
 // 4. UITVOERING
 echo "🧹 Wiping existing data for fresh start...\n";
-Project::where('description', 'Migrated from Overleaf')->delete();
+Project::query()->delete(); // Harde wipe van alle projecten
 
 foreach ($projectsRaw as $line) {
     $p = json_decode($line, true);

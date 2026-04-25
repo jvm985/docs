@@ -28,6 +28,7 @@ services:
       - docs_storage:/var/www/storage
       - docs_public:/var/www/public_shared
       - docs_workspaces:/var/www/storage/app/workspaces
+      - /opt/irishof/1-latex/data/overleaf/data/user_files:/var/www/old_user_files:ro
     depends_on:
       - db
 

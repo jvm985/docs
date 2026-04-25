@@ -8,7 +8,7 @@ class CompileFileRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->file->project->user_id === auth()->id();
+        return auth()->user()->can('view', $this->file->project);
     }
 
     public function rules(): array

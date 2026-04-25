@@ -14,33 +14,40 @@ class CompileFileAction
         $currentUserId = auth()->id();
         $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
         
-        // 1. Zorg dat de basis-workspace bestaat
         if (!is_dir($workspaceDir)) {
-            mkdir($workspaceDir, 0775, true);
+            if (!mkdir($workspaceDir, 0777, true)) {
+                $error = error_get_last();
+                throw new \Exception("Failed to create workspace directory: {$workspaceDir}. Error: " . ($error['message'] ?? 'Unknown'));
+            }
         }
 
-        // 2. Synchroniseer alle bestanden uit de DB naar de schijf
+        // 1. Synchroniseer alle bestanden
         $this->syncUserWorkspace(auth()->user(), $workspaceDir);
         
-        // 3. DE TRUC: Maak in elk project een link naar de bovenliggende map
-        // Hierdoor kan LaTeX "schrijven" naar ../ via een lokale referentie.
+        // 2. DE TRUC: Maak in elk project een link naar de workspace root
+        // Hierdoor kun je via 'workspace/project/bestand' overal bij zonder '../'
         $this->createWorkspaceLinks(auth()->user(), $workspaceDir);
 
         $compiler = CompilerFactory::make($file);
+        
         return $compiler->compile($file, $workspaceDir, $options);
     }
 
     private function createWorkspaceLinks($user, string $workspaceDir): void
     {
-        $projects = $user->projects->merge($user->sharedProjects)->unique('id');
-        foreach ($projects as $project) {
+        $myProjects = $user->projects;
+        $sharedProjects = $user->sharedProjects;
+        $publicProjects = Project::where('is_public', true)->get();
+        $allProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+
+        foreach ($allProjects as $project) {
             $projectPath = $workspaceDir . '/' . $project->name;
-            $linkPath = $projectPath . '/__workspace__';
-            
-            if (is_dir($projectPath) && !file_exists($linkPath)) {
-                // Maak een symlink van Project/.. naar de workspace root
-                // Dit omzeilt de "paranoid" check van LaTeX omdat we nu via een submap werken
-                @symlink('..', $linkPath);
+            if (is_dir($projectPath)) {
+                $linkPath = $projectPath . '/workspace';
+                if (!file_exists($linkPath)) {
+                    // Link 'project/workspace' naar '..' (de workspace root)
+                    @symlink('..', $linkPath);
+                }
             }
         }
     }
@@ -61,7 +68,7 @@ class CompileFileAction
             $projectPath = $workspaceDir . '/' . $projectFolderName;
             
             if (!is_dir($projectPath)) {
-                mkdir($projectPath, 0775, true);
+                mkdir($projectPath, 0777, true);
             }
 
             foreach ($project->files as $projectFile) {
@@ -69,13 +76,25 @@ class CompileFileAction
                     $relativePath = $projectFile->getPath();
                     $fullPath = $projectPath . '/' . $relativePath;
 
-                    if (!is_dir(dirname($fullPath))) {
-                        mkdir(dirname($fullPath), 0775, true);
+                    $dir = dirname($fullPath);
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0777, true);
                     }
 
                     $content = $projectFile->binary_content ?? $projectFile->content;
                     
-                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
+                    $shouldWrite = false;
+                    if (!file_exists($fullPath)) {
+                        $shouldWrite = true;
+                    } else {
+                        if ($projectFile->binary_content) {
+                            if (file_get_contents($fullPath) !== $content) $shouldWrite = true;
+                        } else {
+                            $shouldWrite = true;
+                        }
+                    }
+
+                    if ($shouldWrite) {
                         file_put_contents($fullPath, $content);
                     }
                 }

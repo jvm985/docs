@@ -39,7 +39,10 @@ class AuditCompilers extends Command
             return;
         }
 
-        $mainFile = $project->files()->where('name', 'cursus_irishof.tex')->first();
+        $mainFile = $project->files()->where('name', '6SWO.tex')->first();
+        if (!$mainFile) {
+            $mainFile = $project->files()->where('name', 'cursus_irishof.tex')->first();
+        }
         if (!$mainFile) {
             $this->error("  [FAIL] main file cursus_irishof.tex not found!");
             return;

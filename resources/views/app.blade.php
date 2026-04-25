@@ -18,9 +18,10 @@
             // Hard refresh if we detect an old version in the DOM
             window.addEventListener('DOMContentLoaded', () => {
                 const version = document.querySelector('meta[name="app-version"]')?.content;
-                if (version && version !== "{{ md5_file(public_path('build/manifest.json')) }}") {
+                const currentManifest = "{{ is_file(public_path('build/manifest.json')) ? md5_file(public_path('build/manifest.json')) : 'none' }}";
+                if (version && version !== currentManifest) {
                     console.log('Old version detected, forcing reload...');
-                    // window.location.reload(true);
+                    window.location.reload(true);
                 }
             });
         </script>

@@ -28,15 +28,17 @@ class CompileFileAction
 
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
-        // Haal EIGEN projecten op
+        // Forceer een refresh van de relaties om caching-problemen te voorkomen (vooral in tests/audit)
+        $user->unsetRelation('projects');
+        $user->unsetRelation('sharedProjects');
+        
         $myProjects = $user->projects;
-        // Haal GEDEELDE projecten op (individueel)
         $sharedProjects = $user->sharedProjects;
-        // Haal PUBLIEKE projecten op
         $publicProjects = Project::where('is_public', true)->get();
 
-        // Voeg alles samen tot een unieke lijst van toegankelijke projecten
         $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+        
+        // DEBUG: \Log::info("Syncing workspace for user {$user->id}. Projects: " . $allAccessibleProjects->pluck('name')->implode(', '));
 
         foreach ($allAccessibleProjects as $project) {
             $projectFolderName = $project->name;

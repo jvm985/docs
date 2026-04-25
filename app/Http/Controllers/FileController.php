@@ -80,7 +80,7 @@ class FileController extends Controller
         // Onthoud oude pad voor hernoemen/verplaatsen op schijf
         $oldPath = $this->getPhysicalPath($file);
 
-        $file->update($request->only('content', 'name', 'parent_id'));
+        $file->update($request->only('content', 'name', 'parent_id', 'preferred_compiler'));
 
         // Update schijf
         if (isset($request->content)) {

@@ -14,24 +14,25 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // Werkmap is het project binnen de workspace van de huidige gebruiker
-        $projectDir = $tempDir . '/' . $file->project->name;
-        $relativePath = $file->getPath();
+        // We draaien de compiler nu vanuit de ROOT van de workspace
+        // De paden worden dan: ProjectNaam/Pad/Naar/Bestand.tex
+        $workspacePath = $file->project->name . '/' . $file->getPath();
         
-        // Forceer LaTeX om schrijven naar ../ mappen toe te staan via de shell command
-        // We voegen openout_any=a direct toe aan de opdrachtregel
-        $process = Process::path($projectDir)
+        $process = Process::path($tempDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
+                'openout_any' => 'a',
+                'openin_any' => 'a'
             ])
-            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" -cnf-line=\"openin_any=a\" " . escapeshellarg($relativePath));
+            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" " . escapeshellarg($workspacePath));
         
         $output = $process->output() ?: $process->errorOutput();
         
-        // PDF wordt gewoon naast het bronbestand aangemaakt
-        $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $projectDir . '/' . dirname($relativePath) . '/' . $pdfName;
+        // PDF wordt gegenereerd in de workspace root of in de projectmap afhankelijk van pdflatex versie
+        // Maar meestal in de map van het bronbestand: ProjectNaam/Pad/Naar/Bestand.pdf
+        $pdfName = pathinfo($workspacePath, PATHINFO_FILENAME) . '.pdf';
+        $fullPdfPath = $tempDir . '/' . dirname($workspacePath) . '/' . $pdfName;
         $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
 
         $url = null;

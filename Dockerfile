@@ -80,9 +80,9 @@ RUN mkdir -p /var/www/texmf && \
     echo "openout_any = a" > /var/www/texmf/texmf.cnf && \
     echo "openin_any = a" >> /var/www/texmf/texmf.cnf
 
-# Installeer custom fonts
-RUN mkdir -p /usr/share/fonts/truetype/custom
-COPY resources/fonts/*.ttf /usr/share/fonts/truetype/custom/
+# Installeer custom fonts (exacte paden voor Quicksand/Asap zoals in config.tex)
+RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static
+COPY resources/fonts/*.ttf /usr/share/fonts/truetype/Quicksand/static/
 RUN fc-cache -f -v
 
 # Adjust permissions

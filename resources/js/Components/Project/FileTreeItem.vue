@@ -30,6 +30,12 @@ const closeMenu = () => {
     menuOpen.value = false;
 };
 
+const onDragStart = (e) => {
+    // Sla het ID van het gesleepte item op in de globale drag data
+    e.dataTransfer.setData('text/plain', props.item.id.toString());
+    e.dataTransfer.effectAllowed = 'move';
+};
+
 const onDragEnter = (e) => {
     if (props.item.type === 'folder') {
         isDragOver.value = true;
@@ -42,6 +48,7 @@ const onDragEnter = (e) => {
 };
 
 const onDragLeave = (e) => {
+    // Alleen uitzetten als we echt het element verlaten (niet naar een kind gaan)
     if (!e.currentTarget.contains(e.relatedTarget)) {
         isDragOver.value = false;
         if (hoverTimer) {
@@ -51,8 +58,16 @@ const onDragLeave = (e) => {
     }
 };
 
-const onDrop = (evt) => {
+const onDrop = (e) => {
     isDragOver.value = false;
+    if (hoverTimer) clearTimeout(hoverTimer);
+
+    if (props.item.type !== 'folder') return;
+
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (draggedId && parseInt(draggedId) !== props.item.id) {
+        emit('move-item', { fileId: parseInt(draggedId), parentId: props.item.id });
+    }
 };
 
 const onDragAdd = (evt) => {
@@ -74,16 +89,21 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <li class="select-none mb-0.5" :data-id="props.item.id">
+    <li 
+        class="select-none mb-0.5" 
+        :data-id="props.item.id"
+        draggable="true"
+        @dragstart="onDragStart"
+    >
         <!-- Folder/File Row -->
         <div 
             class="flex items-center py-1.5 px-2 hover:bg-gray-200 cursor-pointer rounded group relative transition-all border border-transparent"
-            :class="{ 'bg-blue-50 border-blue-400 shadow-sm': isDragOver }"
+            :class="{ 'bg-blue-100 border-blue-500 shadow-sm scale-[1.02] z-10': isDragOver }"
             @click="props.item.type === 'folder' ? toggle() : emit('select', props.item)"
             @dragenter.prevent="onDragEnter"
             @dragover.prevent
             @dragleave="onDragLeave"
-            @drop="onDrop"
+            @drop.stop="onDrop"
         >
             <!-- Drag Handle (The Icon) -->
             <span class="drag-handle cursor-grab active:cursor-grabbing mr-2 text-xs w-4 flex items-center justify-center hover:scale-125 transition-transform">
@@ -120,7 +140,7 @@ onUnmounted(() => {
             item-key="id" 
             tag="ul" 
             class="pl-6 mt-0.5 border-l border-gray-200 ml-3 min-h-[25px] transition-all"
-            :class="{ 'bg-blue-50/50 rounded': isDragOver }"
+            :class="{ 'bg-blue-50/30 rounded': isDragOver }"
             :group="{ name: 'files' }"
             handle=".drag-handle"
             ghost-class="opacity-50"
@@ -139,9 +159,9 @@ onUnmounted(() => {
                     :initiallyOpen="element.children && element.children.length > 0"
                 />
             </template>
-            <!-- Placeholder for empty folders to make dropping easier -->
+            <!-- Placeholder for empty folders -->
             <template #header v-if="!props.item.children || props.item.children.length === 0">
-                <div v-show="isDragOver" class="text-[10px] text-blue-400 py-1 italic">Sleep hierheen...</div>
+                <div v-show="isDragOver" class="text-[10px] text-blue-400 py-1 italic">Drop hier...</div>
             </template>
         </draggable>
     </li>
@@ -156,5 +176,9 @@ onUnmounted(() => {
 }
 .drag-handle:hover {
     color: #4b5563;
+}
+/* Voorkom dat de tekst geselecteerd wordt tijdens het slepen */
+li[draggable="true"] {
+    user-select: none;
 }
 </style>

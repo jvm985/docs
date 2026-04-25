@@ -49,6 +49,7 @@ services:
       - "127.0.0.1:8030:80"
     volumes:
       - docs_public:/var/www/public:ro
+      - docs_storage:/var/www/storage:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app

@@ -14,7 +14,7 @@ use App\Http\Controllers\FileController;
 class AuditCompilers extends Command
 {
     protected $signature = 'app:audit-compilers';
-    protected $description = 'Deep audit of all document compilers and R execution logic';
+    protected $description = 'Deep audit of all document compilers including cross-project sharing';
 
     public function handle()
     {
@@ -54,6 +54,8 @@ class AuditCompilers extends Command
         foreach ($tests as $type => $data) {
             $this->testCompiler($project, $type, $data);
         }
+
+        $this->testCrossProjectSharing();
 
         $this->info("\nAudit Complete.");
     }
@@ -96,6 +98,59 @@ class AuditCompilers extends Command
             $this->error("  [FAIL] Unexpected response type: " . $content->type);
             $this->line("  Raw Output: " . ($content->output ?? 'NULL'));
         }
+    }
+
+    protected function testCrossProjectSharing()
+    {
+        $this->comment("\nTesting Cross-Project Sharing (Viewer perspective)...");
+
+        // 1. Setup two users
+        $owner = User::factory()->create(['name' => 'Audit Owner']);
+        $viewer = User::factory()->create(['name' => 'Audit Viewer']);
+
+        // 2. Setup Project A (The dependency)
+        $projectA = Project::create(['name' => 'shared_lib', 'user_id' => $owner->id]);
+        $projectA->files()->create([
+            'name' => 'header.tex',
+            'type' => 'file',
+            'extension' => 'tex',
+            'content' => 'DEFINED_IN_SHARED_LIB'
+        ]);
+
+        // 3. Setup Project B (The main project)
+        $projectB = Project::create(['name' => 'main_doc', 'user_id' => $owner->id]);
+        $mainFile = $projectB->files()->create([
+            'name' => 'main.tex',
+            'type' => 'file',
+            'extension' => 'tex',
+            'content' => "\\documentclass{article}\n\\begin{document}\nInclude test: \\input{../shared_lib/header.tex}\n\\end{document}"
+        ]);
+
+        // 4. Share Project B with Viewer
+        $projectB->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
+
+        // 5. Compile as Viewer
+        $this->info("  -> Attempting compile as Viewer (ID: {$viewer->id})...");
+        auth()->login($viewer);
+        
+        $action = new \App\Actions\CompileFileAction();
+        try {
+            $res = $action->execute($mainFile);
+            if ($res['type'] === 'pdf') {
+                $this->info("  [OK] Cross-project compilation SUCCESSFUL for Viewer.");
+            } else {
+                $this->error("  [FAIL] Cross-project compilation FAILED.");
+                $this->line("  Raw Output: " . $res['output']);
+            }
+        } catch (\Exception $e) {
+            $this->error("  [EXCEPTION] " . $e->getMessage());
+        }
+
+        // Cleanup
+        $projectA->delete();
+        $projectB->delete();
+        $owner->delete();
+        $viewer->delete();
     }
 
     protected function header($text)

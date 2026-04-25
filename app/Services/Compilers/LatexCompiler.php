@@ -14,19 +14,19 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // Path is now: ProjectName/folder/file.tex
-        $relativePath = $file->project->name . '/' . $file->getPath();
+        // Start compilation from the project root
+        $projectDir = $tempDir . '/' . $file->project->name;
+        $relativePath = $file->getPath();
         
-        $process = Process::path($tempDir)
+        $process = Process::path($projectDir)
             ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
             ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
         
         $output = $process->output() ?: $process->errorOutput();
         
-        // PDF is usually generated in the same folder as the source file
+        // PDF is generated relative to the project directory
         $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $tempDir . '/' . dirname($relativePath) . '/' . $pdfName;
-        // Cleanup path if in root
+        $fullPdfPath = $projectDir . '/' . dirname($relativePath) . '/' . $pdfName;
         $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
 
         $url = null;

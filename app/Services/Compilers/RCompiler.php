@@ -11,8 +11,9 @@ class RCompiler implements CompilerInterface
 {
     public function compile(File $file, string $tempDir, array $options = []): array
     {
+        $projectDir = $tempDir . '/' . $file->project->name;
         $codeToRun = $options['code'] ?? $file->content;
-        file_put_contents($tempDir . '/user_code.R', $codeToRun);
+        file_put_contents($projectDir . '/user_code.R', $codeToRun);
         
         $sessionFile = storage_path("app/r_sessions/project_{$file->project_id}.RData");
         if (!file_exists(dirname($sessionFile))) {
@@ -20,9 +21,9 @@ class RCompiler implements CompilerInterface
         }
 
         $wrapper = $this->generateWrapper($sessionFile);
-        file_put_contents($tempDir . '/wrapper.R', $wrapper);
+        file_put_contents($projectDir . '/wrapper.R', $wrapper);
 
-        $process = Process::path($tempDir)
+        $process = Process::path($projectDir)
             ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
             ->run("/usr/bin/Rscript wrapper.R");
         
@@ -104,7 +105,7 @@ tryCatch({
 
 dev.off()
 
-# Save user variables (ls returns only non-hidden ones by default)
+# Save user variables
 .app_user_vars <- ls(envir = .GlobalEnv, all.names = FALSE)
 save(list = .app_user_vars, file = '{$sessionFile}', envir = .GlobalEnv)
 
@@ -122,10 +123,10 @@ write_json(list(output=.app_structured_output, variables=.app_var_metadata), 're
 ";
     }
 
-    private function collectPlots($tempDir): array
+    private function collectPlots($projectDir): array
     {
         $plots = [];
-        foreach (glob($tempDir . '/plot_*.png') as $plotFile) {
+        foreach (glob($projectDir . '/plot_*.png') as $plotFile) {
             $pPath = 'outputs/' . Str::random(20) . '.png';
             Storage::disk('public')->put($pPath, file_get_contents($plotFile));
             $plots[] = Storage::url($pPath);

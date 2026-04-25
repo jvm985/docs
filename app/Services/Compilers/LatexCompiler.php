@@ -13,18 +13,25 @@ class LatexCompiler implements CompilerInterface
     {
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
+        $relativePath = $file->getPath();
         
         $process = Process::path($tempDir)
             ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
-            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($file->name));
+            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
         
         $output = $process->output() ?: $process->errorOutput();
-        $pdfName = pathinfo($file->name, PATHINFO_FILENAME) . '.pdf';
+        
+        // PDF is usually generated in the same folder as the source file
+        $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
+        $fullPdfPath = $tempDir . '/' . dirname($relativePath) . '/' . $pdfName;
+        // Cleanup path if in root
+        $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
+
         $url = null;
         $type = 'text';
 
-        if (file_exists($tempDir . '/' . $pdfName)) {
-            $fileData = file_get_contents($tempDir . '/' . $pdfName);
+        if (file_exists($fullPdfPath)) {
+            $fileData = file_get_contents($fullPdfPath);
             if (str_starts_with($fileData, "%PDF-")) {
                 $type = 'pdf';
                 $publicPath = 'outputs/' . Str::random(20) . '.pdf';

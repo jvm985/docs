@@ -18,8 +18,16 @@ class File extends Model
         return $this->belongsTo(File::class, 'parent_id');
     }
 
-    public function children()
+    public function getPath(): string
     {
-        return $this->hasMany(File::class, 'parent_id');
+        $path = [$this->name];
+        $current = $this;
+
+        while ($current->parent) {
+            $current = $current->parent;
+            array_unshift($path, $current->name);
+        }
+
+        return implode('/', $path);
     }
 }

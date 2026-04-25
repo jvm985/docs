@@ -11,8 +11,10 @@ class TypstCompiler implements CompilerInterface
 {
     public function compile(File $file, string $tempDir, array $options = []): array
     {
-        $pdfName = pathinfo($file->name, PATHINFO_FILENAME) . '.pdf';
-        $process = Process::path($tempDir)->env(['HOME' => '/tmp'])->run("/usr/local/bin/typst compile " . escapeshellarg($file->name) . " " . escapeshellarg($pdfName));
+        $relativePath = $file->getPath();
+        $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
+        // Typst outputs PDF in current working directory unless specified otherwise
+        $process = Process::path($tempDir)->env(['HOME' => '/tmp'])->run("/usr/local/bin/typst compile " . escapeshellarg($relativePath) . " " . escapeshellarg($pdfName));
         
         $output = $process->output() ?: $process->errorOutput();
         $url = null;

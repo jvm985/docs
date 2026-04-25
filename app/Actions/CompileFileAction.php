@@ -29,8 +29,15 @@ class CompileFileAction
     {
         foreach ($file->project->files as $projectFile) {
             if ($projectFile->type === 'file') {
-                $path = $tempDir . '/' . $projectFile->name;
-                file_put_contents($path, $projectFile->content);
+                $relativePath = $projectFile->getPath();
+                $fullPath = $tempDir . '/' . $relativePath;
+                
+                $dir = dirname($fullPath);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0777, true);
+                }
+                
+                file_put_contents($fullPath, $projectFile->content);
             }
         }
     }

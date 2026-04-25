@@ -4,14 +4,9 @@ import './bootstrap';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
-
-// Gebruik de alias uit vite.config.js
-import { ZiggyVue } from 'ziggy-js/dist/vue.mjs';
+import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-
-// Marker voor de Pest test
-window.DOCS_APP_VERSION = 'PEST-V100-REAL';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -21,7 +16,6 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        console.log('Mounting Docs App PEST-V100-REAL...');
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)

@@ -28,6 +28,10 @@ class CompileFileAction
 
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
+        if (!is_dir($workspaceDir)) {
+            mkdir($workspaceDir, 0777, true);
+        }
+
         // Forceer een refresh van de relaties om caching-problemen te voorkomen (vooral in tests/audit)
         $user->unsetRelation('projects');
         $user->unsetRelation('sharedProjects');

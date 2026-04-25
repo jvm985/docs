@@ -29,30 +29,38 @@ class CompileFileAction
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
         $user->refresh();
-        $myProjects = $user->projects;
-        $sharedProjects = $user->sharedProjects;
-        $publicProjects = Project::where('is_public', true)->get();
-
-        $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+        $projectIds = $user->projects()->pluck('id')
+            ->merge($user->sharedProjects()->pluck('id'))
+            ->merge(Project::where('is_public', true)->pluck('id'))
+            ->unique()
+            ->values();
         
-        \Log::info("Syncing workspace for user: " . $user->email . " (Projects: " . $allAccessibleProjects->count() . ")");
+        \Log::info("Syncing workspace for user: " . $user->email . " (Project IDs: " . $projectIds->count() . ")");
 
-        foreach ($allAccessibleProjects as $project) {
+        foreach (Project::whereIn('id', $projectIds)->cursor() as $project) {
             $projectPath = $workspaceDir . '/' . $project->name;
             if (!is_dir($projectPath)) {
                 mkdir($projectPath, 0777, true);
             }
 
-            foreach ($project->files as $projectFile) {
+            // Gebruik cursor om te voorkomen dat alle files van een project tegelijk in memory komen
+            foreach ($project->files()->cursor() as $projectFile) {
                 if ($projectFile->type === 'file') {
                     $fullPath = $projectPath . '/' . $projectFile->getPath();
-                    if (!is_dir(dirname($fullPath))) {
-                        mkdir(dirname($fullPath), 0777, true);
-                    }
+                    
+                    // Alleen syncen als de file echt veranderd is (op basis van timestamp)
+                    $needsUpdate = !file_exists($fullPath) || 
+                                  filemtime($fullPath) < $projectFile->updated_at->timestamp;
 
-                    $content = $projectFile->binary_content ?? $projectFile->content;
-                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
+                    if ($needsUpdate) {
+                        if (!is_dir(dirname($fullPath))) {
+                            mkdir(dirname($fullPath), 0777, true);
+                        }
+
+                        $content = $projectFile->binary_content ?? $projectFile->content;
                         file_put_contents($fullPath, $content);
+                        // Zet mtime gelijk aan updated_at voor toekomstige checks
+                        touch($fullPath, $projectFile->updated_at->timestamp);
                     }
                 }
             }

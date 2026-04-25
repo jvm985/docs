@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_pgsql pdo_mysql mbstring exif pcntl bcmath gd zip
 
+# Increase memory limit
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory-limit.ini
+
 # Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \

@@ -20,7 +20,7 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URI=https://docs.irishof.cloud/auth/google/callback
-      - SESSION_DRIVER=database
+      - SESSION_DRIVER=file
       - SESSION_SECURE_COOKIE=true
       - SESSION_DOMAIN=irishof.cloud
       - SANCTUM_STATEFUL_DOMAINS=docs.irishof.cloud

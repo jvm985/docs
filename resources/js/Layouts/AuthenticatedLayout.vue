@@ -45,7 +45,7 @@ const showingNavigationDropdown = ref(false);
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
                             <!-- Settings Dropdown -->
                             <div class="ms-3 relative flex items-center gap-4">
-                                <span class="text-[10px] text-gray-300 font-mono">v1.0.{{ Date.now() }}</span>
+                                <span class="text-[10px] text-green-500 font-bold font-mono">🔥 FINAL-FIX-V5</span>
                                 <Dropdown align="right" width="48">
 
                                     <template #trigger>

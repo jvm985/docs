@@ -82,7 +82,8 @@ RUN mkdir -p /var/www/texmf && \
 
 # Adjust permissions
 RUN mkdir -p /var/www/storage/app/workspaces && \
-    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf
+    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf && \
+    chmod -R 775 /var/www/storage
 
 EXPOSE 9000
 CMD ["php-fpm"]

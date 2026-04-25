@@ -131,7 +131,7 @@ class AuditCompilers extends Command
             'name' => 'main.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => "\\documentclass{article}\n\\begin{document}\nInclude test: \\input{../shared_lib/header.tex}\n\\end{document}"
+            'content' => "\\documentclass{article}\n\\begin{document}\nInclude test: \\include{../shared_lib/header}\n\\end{document}"
         ]);
 
         // 4. Share Project B with Viewer

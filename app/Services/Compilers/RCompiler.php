@@ -30,12 +30,12 @@ class RCompiler implements CompilerInterface
         $rawOutput = $process->output() ?: $process->errorOutput();
         
         $resultJson = null;
-        if (file_exists($tempDir . '/result.json')) {
-            $jsonContent = file_get_contents($tempDir . '/result.json');
+        if (file_exists($projectDir . '/result.json')) {
+            $jsonContent = file_get_contents($projectDir . '/result.json');
             $resultJson = json_decode($jsonContent, true);
         }
         
-        $plots = $this->collectPlots($tempDir);
+        $plots = $this->collectPlots($projectDir);
         
         $structuredOutput = $resultJson['output'] ?? [];
         if (empty($structuredOutput) && !empty($rawOutput)) {

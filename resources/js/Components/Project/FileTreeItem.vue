@@ -12,6 +12,7 @@ const emit = defineEmits(['select', 'create', 'delete', 'rename', 'copy', 'move-
 const isOpen = ref(props.initiallyOpen || false);
 const menuOpen = ref(false);
 const isDragOver = ref(false);
+let dragCounter = 0; 
 let hoverTimer = null;
 
 const toggle = () => {
@@ -31,15 +32,15 @@ const closeMenu = () => {
 };
 
 const onDragStart = (e) => {
-    // Sla het ID van het gesleepte item op in de globale drag data
     e.dataTransfer.setData('text/plain', props.item.id.toString());
     e.dataTransfer.effectAllowed = 'move';
 };
 
 const onDragEnter = (e) => {
     if (props.item.type === 'folder') {
+        dragCounter++;
         isDragOver.value = true;
-        if (!isOpen.value) {
+        if (!isOpen.value && !hoverTimer) {
             hoverTimer = setTimeout(() => {
                 isOpen.value = true;
             }, 500);
@@ -48,19 +49,26 @@ const onDragEnter = (e) => {
 };
 
 const onDragLeave = (e) => {
-    // Alleen uitzetten als we echt het element verlaten (niet naar een kind gaan)
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-        isDragOver.value = false;
-        if (hoverTimer) {
-            clearTimeout(hoverTimer);
-            hoverTimer = null;
+    if (props.item.type === 'folder') {
+        dragCounter--;
+        if (dragCounter <= 0) {
+            isDragOver.value = false;
+            dragCounter = 0;
+            if (hoverTimer) {
+                clearTimeout(hoverTimer);
+                hoverTimer = null;
+            }
         }
     }
 };
 
 const onDrop = (e) => {
+    dragCounter = 0;
     isDragOver.value = false;
-    if (hoverTimer) clearTimeout(hoverTimer);
+    if (hoverTimer) {
+        clearTimeout(hoverTimer);
+        hoverTimer = null;
+    }
 
     if (props.item.type !== 'folder') return;
 
@@ -72,6 +80,7 @@ const onDrop = (e) => {
 
 const onDragAdd = (evt) => {
     isDragOver.value = false;
+    dragCounter = 0;
     const fileId = evt.item.getAttribute('data-id');
     if (fileId) {
         emit('move-item', { fileId: parseInt(fileId), parentId: props.item.id });
@@ -98,7 +107,7 @@ onUnmounted(() => {
         <!-- Folder/File Row -->
         <div 
             class="flex items-center py-1.5 px-2 hover:bg-gray-200 cursor-pointer rounded group relative transition-all border border-transparent"
-            :class="{ 'bg-blue-100 border-blue-500 shadow-sm scale-[1.02] z-10': isDragOver }"
+            :class="{ 'bg-blue-100 border-blue-400 z-10': isDragOver }"
             @click="props.item.type === 'folder' ? toggle() : emit('select', props.item)"
             @dragenter.prevent="onDragEnter"
             @dragover.prevent
@@ -161,7 +170,7 @@ onUnmounted(() => {
             </template>
             <!-- Placeholder for empty folders -->
             <template #header v-if="!props.item.children || props.item.children.length === 0">
-                <div v-show="isDragOver" class="text-[10px] text-blue-400 py-1 italic">Drop hier...</div>
+                <div v-show="isDragOver" class="text-[10px] text-blue-400 py-1 italic pointer-events-none">Drop hier...</div>
             </template>
         </draggable>
     </li>
@@ -177,7 +186,6 @@ onUnmounted(() => {
 .drag-handle:hover {
     color: #4b5563;
 }
-/* Voorkom dat de tekst geselecteerd wordt tijdens het slepen */
 li[draggable="true"] {
     user-select: none;
 }

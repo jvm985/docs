@@ -28,5 +28,5 @@ test('the javascript bundle contains the inertia initialization', function () {
     $jsContent = Http::get($jsUrl)->body();
     
     // Check of onze unieke marker aanwezig is in de bundle
-    expect($jsContent)->toContain('PEST-V100-REAL');
+    expect($jsContent)->toContain('PEST-V100-REAL-FORCE');
 });

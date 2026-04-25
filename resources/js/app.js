@@ -1,3 +1,7 @@
+// @ts-ignore
+window.PEST_MARKER = "PEST-V100-REAL-FORCE";
+console.log("PEST-V100-REAL-FORCE");
+
 import '../css/app.css';
 import './bootstrap';
 

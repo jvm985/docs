@@ -15,29 +15,40 @@ class CompileFileAction
         mkdir($tempDir, 0777, true);
 
         try {
-            $this->prepareProjectFiles($file, $tempDir);
+            $this->prepareUserWorkspace($file, $tempDir);
             
             $compiler = CompilerFactory::make($file);
             
+            // We pass the relative path including the project name
             return $compiler->compile($file, $tempDir, $options);
         } finally {
             $this->recursiveRemoveDir($tempDir);
         }
     }
 
-    private function prepareProjectFiles(File $file, string $tempDir): void
+    private function prepareUserWorkspace(File $activeFile, string $tempDir): void
     {
-        foreach ($file->project->files as $projectFile) {
-            if ($projectFile->type === 'file') {
-                $relativePath = $projectFile->getPath();
-                $fullPath = $tempDir . '/' . $relativePath;
-                
-                $dir = dirname($fullPath);
-                if (!is_dir($dir)) {
-                    mkdir($dir, 0777, true);
+        $user = $activeFile->project->user;
+        foreach ($user->projects as $project) {
+            // Use project name as folder name (sanitized for paths)
+            $projectFolderName = $project->name;
+            
+            foreach ($project->files as $projectFile) {
+                if ($projectFile->type === 'file') {
+                    $relativePath = $projectFile->getPath();
+                    $fullPath = $tempDir . '/' . $projectFolderName . '/' . $relativePath;
+                    
+                    $dir = dirname($fullPath);
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0777, true);
+                    }
+                    
+                    if ($projectFile->binary_content) {
+                        file_put_contents($fullPath, $projectFile->binary_content);
+                    } else {
+                        file_put_contents($fullPath, $projectFile->content);
+                    }
                 }
-                
-                file_put_contents($fullPath, $projectFile->content);
             }
         }
     }

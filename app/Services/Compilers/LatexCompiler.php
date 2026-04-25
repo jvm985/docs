@@ -13,7 +13,9 @@ class LatexCompiler implements CompilerInterface
     {
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
-        $relativePath = $file->getPath();
+        
+        // Path is now: ProjectName/folder/file.tex
+        $relativePath = $file->project->name . '/' . $file->getPath();
         
         $process = Process::path($tempDir)
             ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])

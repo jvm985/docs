@@ -24,9 +24,8 @@ class LatexCompiler implements CompilerInterface
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
-                'TEXMFCNF' => '/var/www/texmf:',
             ])
-            ->run("env openout_any=a openin_any=a {$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
+            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" -cnf-line=\"openin_any=a\" " . escapeshellarg($relativePath));
         
         $output = $process->output() ?: $process->errorOutput();
         

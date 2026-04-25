@@ -59,7 +59,7 @@ class CompileFileAction
         // Rewrite paths for LaTeX: \include{../project/file} -> \include{project___file}
         if (in_array(strtolower($file->extension), ['tex', 'rmd', 'md', 'typ'])) {
             // Match ../Project/Path patterns
-            $content = preg_replace_callback('/(\\include|\\input|#include|#import)\{?"?\.{2}\/([^\/\}"]+)\/([^\}"]+)"?\}?/', function($m) {
+            $content = preg_replace_callback('/(\\\\include|\\\\input|#include|#import)\{?"?\.{2}\/([^\/\}"]+)\/([^\}"]+)"?\}?/', function($m) {
                 $project = $m[2];
                 $path = str_replace('/', '___', $m[3]);
                 // Remove extension for TeX includes if present

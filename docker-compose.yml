@@ -26,7 +26,7 @@ services:
       - SANCTUM_STATEFUL_DOMAINS=docs.irishof.cloud
     volumes:
       - docs_storage:/var/www/storage
-      - docs_public:/var/www/public
+      - docs_public:/var/www/public_shared
       - docs_workspaces:/var/www/storage/app/workspaces
     depends_on:
       - db

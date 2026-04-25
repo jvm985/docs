@@ -118,7 +118,7 @@ onMounted(() => {
                 </select>
             </div>
             <div class="flex gap-4 items-center">
-                <span class="text-[10px] text-green-500 font-bold font-mono">🚀 DOCS-V4-LIVE</span>
+                <span class="text-[10px] text-green-500 font-bold font-mono">🔥 FINAL-FIX-V5</span>
                 <button 
                     v-if="['tex', 'typ', 'md', 'rmd', 'r'].includes(ext)"
                     dusk="compile-button"

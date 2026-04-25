@@ -81,9 +81,11 @@ RUN mkdir -p /var/www/texmf && \
     echo "openin_any = a" >> /var/www/texmf/texmf.cnf
 
 # Adjust permissions
-RUN mkdir -p /var/www/storage/app/workspaces && \
-    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf && \
-    chmod -R 775 /var/www/storage
+RUN mkdir -p /var/www/storage/app/workspaces /var/www/public_shared/build && \
+    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf /var/www/public_shared
+
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 9000
-CMD ["php-fpm"]
+ENTRYPOINT ["docker-entrypoint.sh"]

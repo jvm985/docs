@@ -119,7 +119,8 @@ onUnmounted(() => {
             v-model="props.item.children" 
             item-key="id" 
             tag="ul" 
-            class="pl-6 mt-0.5 border-l border-gray-200 ml-3 min-h-[5px]"
+            class="pl-6 mt-0.5 border-l border-gray-200 ml-3 min-h-[25px] transition-all"
+            :class="{ 'bg-blue-50/50 rounded': isDragOver }"
             :group="{ name: 'files' }"
             handle=".drag-handle"
             ghost-class="opacity-50"
@@ -137,6 +138,10 @@ onUnmounted(() => {
                     @toggle-folder="data => emit('toggle-folder', data)"
                     :initiallyOpen="element.children && element.children.length > 0"
                 />
+            </template>
+            <!-- Placeholder for empty folders to make dropping easier -->
+            <template #header v-if="!props.item.children || props.item.children.length === 0">
+                <div v-show="isDragOver" class="text-[10px] text-blue-400 py-1 italic">Sleep hierheen...</div>
             </template>
         </draggable>
     </li>

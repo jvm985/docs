@@ -14,25 +14,28 @@ class PandocCompiler implements CompilerInterface
         $projectDir = $tempDir . '/' . $file->project->name;
         $relativePath = $file->getPath();
         $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
+        
+        $outputDir = $tempDir . '/_output_' . Str::random(5);
+        mkdir($outputDir, 0777, true);
+        
         $output = "";
         $url = null;
         $type = 'text';
 
         if (strtolower($file->extension) === 'rmd') {
-            $renderCmd = "rmarkdown::render('{$relativePath}', output_format='pdf_document', output_options=list(pdf_engine='/usr/bin/pdflatex', pandoc_args=c('-V', 'pagemode=UseNone')))";
+            $renderCmd = "rmarkdown::render('{$relativePath}', output_dir='{$outputDir}', output_format='pdf_document', output_options=list(pdf_engine='/usr/bin/pdflatex', pandoc_args=c('-V', 'pagemode=UseNone')))";
             $process = Process::path($projectDir)
                 ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
                 ->run("/usr/bin/Rscript -e " . escapeshellarg($renderCmd));
         } else {
             $process = Process::path($projectDir)
                 ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
-                ->run("/usr/bin/pandoc " . escapeshellarg($relativePath) . " --pdf-engine=/usr/bin/pdflatex -V pagemode=UseNone -o " . escapeshellarg($pdfName));
+                ->run("/usr/bin/pandoc " . escapeshellarg($relativePath) . " --pdf-engine=/usr/bin/pdflatex -V pagemode=UseNone -o " . escapeshellarg($outputDir . '/' . $pdfName));
         }
 
         $output = $process->output() ?: $process->errorOutput();
         
-        $fullPdfPath = $projectDir . '/' . dirname($relativePath) . '/' . $pdfName;
-        $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
+        $fullPdfPath = $outputDir . '/' . $pdfName;
 
         if (file_exists($fullPdfPath)) {
             $fileData = file_get_contents($fullPdfPath);

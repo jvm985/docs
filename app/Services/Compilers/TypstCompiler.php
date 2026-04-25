@@ -15,18 +15,21 @@ class TypstCompiler implements CompilerInterface
         $relativePath = $file->getPath();
         $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
         
+        $outputDir = $tempDir . '/_output_' . Str::random(5);
+        mkdir($outputDir, 0777, true);
+        
         $process = Process::path($projectDir)
             ->env(['HOME' => '/tmp'])
-            ->run("/usr/local/bin/typst compile " . escapeshellarg($relativePath) . " " . escapeshellarg($pdfName));
+            ->run("/usr/local/bin/typst compile " . escapeshellarg($relativePath) . " " . escapeshellarg($outputDir . '/' . $pdfName));
         
         $output = $process->output() ?: $process->errorOutput();
         $url = null;
         $type = 'text';
 
-        if (file_exists($projectDir . '/' . $pdfName)) {
+        if (file_exists($outputDir . '/' . $pdfName)) {
             $type = 'pdf';
             $publicPath = 'outputs/' . Str::random(20) . '.pdf';
-            Storage::disk('public')->put($publicPath, file_get_contents($projectDir . '/' . $pdfName));
+            Storage::disk('public')->put($publicPath, file_get_contents($outputDir . '/' . $pdfName));
             $url = Storage::url($publicPath);
         }
 

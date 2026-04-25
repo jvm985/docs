@@ -14,23 +14,26 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // Start compilation from the project root
+        // The project directory (might be read-only for viewers)
         $projectDir = $tempDir . '/' . $file->project->name;
         $relativePath = $file->getPath();
+        
+        // Create a dedicated, writable output directory for this run
+        $outputDir = $tempDir . '/_output_' . Str::random(5);
+        mkdir($outputDir, 0777, true);
         
         $process = Process::path($projectDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
             ])
-            ->run("openout_any=a openin_any=a {$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
+            ->run("openout_any=a openin_any=a {$cmd} -interaction=nonstopmode -output-directory=" . escapeshellarg($outputDir) . " " . escapeshellarg($relativePath));
         
         $output = $process->output() ?: $process->errorOutput();
         
-        // PDF is generated relative to the project directory
+        // PDF is now in our dedicated output directory
         $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $projectDir . '/' . dirname($relativePath) . '/' . $pdfName;
-        $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
+        $fullPdfPath = $outputDir . '/' . $pdfName;
 
         $url = null;
         $type = 'text';

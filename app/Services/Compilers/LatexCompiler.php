@@ -14,13 +14,17 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // The project directory (might be read-only for viewers)
+        // The project directory (source)
         $projectDir = $tempDir . '/' . $file->project->name;
         $relativePath = $file->getPath();
         
-        // Create a dedicated, writable output directory for this run
+        // Create a dedicated, writable output directory
         $outputDir = $tempDir . '/_output_' . Str::random(5);
         mkdir($outputDir, 0777, true);
+
+        // MIRROR the directory structure in the output directory
+        // This is crucial for \include{subfolder/file} to work with -output-directory
+        $this->mirrorStructure($tempDir, $outputDir);
         
         $process = Process::path($projectDir)
             ->env([
@@ -54,5 +58,22 @@ class LatexCompiler implements CompilerInterface
             'url' => $url,
             'result' => null
         ];
+    }
+
+    private function mirrorStructure(string $sourceRoot, string $targetRoot): void
+    {
+        $directories = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($sourceRoot, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($directories as $item) {
+            if ($item->isDir() && !str_contains($item->getPathname(), '_output_')) {
+                $targetPath = str_replace($sourceRoot, $targetRoot, $item->getPathname());
+                if (!is_dir($targetPath)) {
+                    mkdir($targetPath, 0777, true);
+                }
+            }
+        }
     }
 }

@@ -13,28 +13,29 @@ class LatexCompiler implements CompilerInterface
     {
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
-
-        // We draaien de compiler nu vanuit de ROOT van de workspace
-        // De paden worden dan: ProjectNaam/Pad/Naar/Bestand.tex
-        $workspacePath = $file->project->name . '/' . $file->getPath();
-
-        // Forceer permissies via een LOKAAL configuratiebestand in de werkmap
-        // TeX Live laadt texmf.cnf uit de huidige map met de hoogste prioriteit
+        
+        $projectName = $file->project->name;
+        $workspacePath = $projectName . '/' . $file->getPath();
+        
+        // MIRROR: Zorg dat alle submappen van het project ook in de root bestaan
+        // Zodat LaTeX vanuit de root kan schrijven naar 'hoofdstukken/...'
+        $this->mirrorProjectStructure($tempDir, $projectName);
+        
+        // Forceer permissies via LOKAAL configuratiebestand
         file_put_contents($tempDir . '/texmf.cnf', "openout_any = a\nopenin_any = a\n");
-
+        
         $process = Process::path($tempDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
-                // TEXMFCNF op . zetten dwingt LaTeX om in de huidige map te kijken
                 'TEXMFCNF' => $tempDir . ':',
+                'openout_any' => 'a',
+                'openin_any' => 'a'
             ])
             ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($workspacePath));
-
+        
         $output = $process->output() ?: $process->errorOutput();
-
-        // PDF wordt gegenereerd in de workspace root of in de projectmap afhankelijk van pdflatex versie
-        // Maar meestal in de map van het bronbestand: ProjectNaam/Pad/Naar/Bestand.pdf
+        
         $pdfName = pathinfo($workspacePath, PATHINFO_FILENAME) . '.pdf';
         $fullPdfPath = $tempDir . '/' . dirname($workspacePath) . '/' . $pdfName;
         $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
@@ -58,5 +59,27 @@ class LatexCompiler implements CompilerInterface
             'url' => $url,
             'result' => null
         ];
+    }
+
+    private function mirrorProjectStructure(string $workspaceRoot, string $projectName): void
+    {
+        $projectPath = $workspaceRoot . '/' . $projectName;
+        if (!is_dir($projectPath)) return;
+
+        $directories = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($projectPath, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($directories as $item) {
+            if ($item->isDir()) {
+                // Maak de submap (bijv. 'hoofdstukken') aan in de root
+                $relativePath = str_replace($projectPath . '/', '', $item->getPathname());
+                $targetPath = $workspaceRoot . '/' . $relativePath;
+                if (!is_dir($targetPath)) {
+                    mkdir($targetPath, 0777, true);
+                }
+            }
+        }
     }
 }

@@ -19,7 +19,9 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        return parent::version($request);
+        // Gebruik de manifest file hash als versie ID
+        $manifestPath = public_path('build/manifest.json');
+        return is_file($manifestPath) ? md5_file($manifestPath) : parent::version($request);
     }
 
     /**

@@ -80,6 +80,11 @@ RUN mkdir -p /var/www/texmf && \
     echo "openout_any = a" > /var/www/texmf/texmf.cnf && \
     echo "openin_any = a" >> /var/www/texmf/texmf.cnf
 
+# Installeer custom fonts
+RUN mkdir -p /usr/share/fonts/truetype/custom
+COPY resources/fonts/*.ttf /usr/share/fonts/truetype/custom/
+RUN fc-cache -f -v
+
 # Adjust permissions
 RUN mkdir -p /var/www/storage/app/workspaces /var/www/public_shared/build && \
     chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf /var/www/public_shared

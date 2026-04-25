@@ -14,6 +14,17 @@
         <!-- Scripts -->
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
+        <script>
+            // Hard refresh if we detect an old version in the DOM
+            window.addEventListener('DOMContentLoaded', () => {
+                const version = document.querySelector('meta[name="app-version"]')?.content;
+                if (version && version !== "{{ md5_file(public_path('build/manifest.json')) }}") {
+                    console.log('Old version detected, forcing reload...');
+                    // window.location.reload(true);
+                }
+            });
+        </script>
+        <meta name="app-version" content="{{ is_file(public_path('build/manifest.json')) ? md5_file(public_path('build/manifest.json')) : time() }}">
         @inertiaHead
     </head>
     <body class="font-sans antialiased">

@@ -34,6 +34,8 @@ class CompileFileAction
         $publicProjects = Project::where('is_public', true)->get();
 
         $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+        
+        \Log::info("Syncing workspace for user: " . $user->email . " (Projects: " . $allAccessibleProjects->count() . ")");
 
         foreach ($allAccessibleProjects as $project) {
             $projectPath = $workspaceDir . '/' . $project->name;

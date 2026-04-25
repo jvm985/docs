@@ -1,6 +1,6 @@
 FROM php:8.4-fpm
 
-# Install system dependencies
+# Install system dependencies (Heavy, stable layer)
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -22,23 +22,19 @@ RUN apt-get update && apt-get install -y \
 # Install PHP extensions
 RUN docker-php-ext-install pdo_pgsql pdo_mysql mbstring exif pcntl bcmath gd zip
 
-# Increase memory limit
-RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory-limit.ini
-
 # Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/*
 
-# Install R and dependencies
+# Install R and dependencies (Very heavy layer)
 RUN apt-get update && apt-get install -y \
     r-base \
     && rm -rf /var/lib/apt/lists/*
 
-# Install R packages (explicitly including dependencies)
 RUN Rscript -e "install.packages(c('jsonlite', 'rmarkdown', 'knitr', 'yaml', 'htmltools', 'caTools', 'bitops'), repos='https://cloud.r-project.org')"
 
-# Install TeX Live and Pandoc
+# Install TeX Live (The heaviest layer)
 RUN apt-get update && apt-get install -y \
     texlive-latex-base \
     texlive-latex-extra \
@@ -53,7 +49,7 @@ RUN apt-get update && apt-get install -y \
     pandoc \
     && rm -rf /var/lib/apt/lists/*
 
-# Versoepel TeX Live beveiliging om schrijven naar ../ mappen toe te staan (nodig voor gedeelde projecten)
+# LaTeX Permissions
 RUN for f in $(find /etc/texmf /usr/share/texlive -name texmf.cnf); do \
         sed -i 's/openout_any = [pr]/openout_any = a/' $f || true; \
         sed -i 's/openin_any = [pr]/openin_any = a/' $f || true; \
@@ -66,29 +62,27 @@ RUN curl -L https://github.com/typst/typst/releases/latest/download/typst-x86_64
     mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin/ && \
     rm -rf typst-x86_64-unknown-linux-musl
 
-# Install Composer
+# --- Configuration (Fast layers, at the end) ---
+
+# Increase PHP memory limit for syncing
+RUN echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory-limit.ini
+
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
-
-# Copy existing application directory contents
 COPY . /var/www
 
-# Install dependencies and build assets
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 RUN npm install && npm run build
 
-# Forceer LaTeX permissies via een eigen configuratiebestand
 RUN mkdir -p /var/www/texmf && \
     echo "openout_any = a" > /var/www/texmf/texmf.cnf && \
     echo "openin_any = a" >> /var/www/texmf/texmf.cnf
 
-# Installeer custom fonts (exacte paden voor Quicksand/Asap zoals in config.tex)
 RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static
 COPY resources/fonts/*.ttf /usr/share/fonts/truetype/Quicksand/static/
 RUN fc-cache -f -v
 
-# Adjust permissions
 RUN mkdir -p /var/www/storage/app/workspaces /var/www/public_shared/build && \
     chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf /var/www/public_shared
 

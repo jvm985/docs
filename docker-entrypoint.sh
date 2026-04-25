@@ -1,13 +1,13 @@
 #!/bin/sh
 set -e
 
-# Verwijder oude build bestanden om vervuiling en cache-fouten te voorkomen
-echo "🧹 Cleaning shared assets..."
-rm -rf /var/www/public_shared/build*
+# Harde schoonmaak van de gedeelde map
+echo "🧹 Purging shared assets..."
+rm -rf /var/www/public_shared/FINAL_V11 2>/dev/null || true
 
-# Kopieer de verse build bestanden uit de image naar het volume
-echo "🚚 Syncing fresh assets (V8)..."
-cp -rf /var/www/public/build_v8 /var/www/public_shared/
+# Kopieer de nieuwe build
+echo "🚚 Syncing fresh assets (V11)..."
+cp -rf /var/www/public/FINAL_V11 /var/www/public_shared/
 
 # Start de standaard PHP-FPM
 exec php-fpm

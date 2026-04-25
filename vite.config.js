@@ -7,6 +7,7 @@ export default defineConfig({
         laravel({
             input: 'resources/js/app.js',
             refresh: true,
+            buildDirectory: 'FINAL_V11', // Totaal nieuwe naam om alle cache te breken
         }),
         vue({
             template: {
@@ -17,8 +18,4 @@ export default defineConfig({
             },
         }),
     ],
-    build: {
-        outDir: 'public/build_v8',
-        assetsDir: 'assets',
-    },
 });

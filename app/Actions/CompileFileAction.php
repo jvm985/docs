@@ -21,11 +21,10 @@ class CompileFileAction
             }
         }
 
-        // 1. Synchroniseer alle bestanden
+        // 1. Synchroniseer bestanden
         $this->syncUserWorkspace(auth()->user(), $workspaceDir);
         
-        // 2. DE TRUC: Maak in elk project een link naar de workspace root
-        // Hierdoor kun je via 'workspace/project/bestand' overal bij zonder '../'
+        // 2. Maak de '__workspace__' sluiproute in elk project
         $this->createWorkspaceLinks(auth()->user(), $workspaceDir);
 
         $compiler = CompilerFactory::make($file);
@@ -43,9 +42,9 @@ class CompileFileAction
         foreach ($allProjects as $project) {
             $projectPath = $workspaceDir . '/' . $project->name;
             if (is_dir($projectPath)) {
-                $linkPath = $projectPath . '/workspace';
+                $linkPath = $projectPath . '/__workspace__';
                 if (!file_exists($linkPath)) {
-                    // Link 'project/workspace' naar '..' (de workspace root)
+                    // Link naar '..' (de workspace root)
                     @symlink('..', $linkPath);
                 }
             }

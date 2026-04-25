@@ -57,8 +57,9 @@ class AuditCompilers extends Command
             'name' => '5 geschiedenis.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => "\\documentclass{article}\n\\begin{document}\nHoofdtest: \\include{workspace/bbb/napoleon}\n\\end{document}"
+            'content' => "\\documentclass{article}\n\\begin{document}\nHoofdtest: \\include{__workspace__/bbb/napoleon}\n\\end{document}"
         ]);
+
 
         // 4. Share Project AAA with Viewer
         $projectAAA->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);

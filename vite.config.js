@@ -17,4 +17,8 @@ export default defineConfig({
             },
         }),
     ],
+    build: {
+        outDir: 'public/build_v8',
+        assetsDir: 'assets',
+    },
 });

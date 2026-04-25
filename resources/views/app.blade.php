@@ -13,7 +13,7 @@
 
         <!-- Scripts -->
         @routes
-        @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
+        @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"], 'build_v8')
         <script>
             // Hard refresh if we detect an old version in the DOM
             window.addEventListener('DOMContentLoaded', () => {

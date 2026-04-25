@@ -121,7 +121,7 @@ onMounted(() => {
                 <span class="text-sm font-mono font-bold">{{ file?.name }}</span>
             </div>
             <div class="flex gap-4 items-center">
-                <span class="text-[10px] text-green-500 font-bold font-mono">🚀 FINAL-V7-CLEAN</span>
+                <span class="text-[10px] text-green-500 font-bold font-mono">🚀 FINAL-V8-CACHEBREAKER</span>
                 
                 <!-- Compiler Selector for LaTeX -->
                 <div v-if="ext === 'tex'" class="flex items-center gap-2">

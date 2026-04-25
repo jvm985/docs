@@ -27,6 +27,7 @@ services:
     volumes:
       - docs_storage:/var/www/storage
       - docs_public:/var/www/public
+      - docs_workspaces:/var/www/storage/app/workspaces
     depends_on:
       - db
 
@@ -58,3 +59,4 @@ volumes:
   docs_db_data:
   docs_public:
   docs_storage:
+  docs_workspaces:

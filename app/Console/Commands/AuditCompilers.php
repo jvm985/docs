@@ -28,7 +28,7 @@ class AuditCompilers extends Command
 
     protected function testCrossProjectSharing()
     {
-        $this->comment("\nTesting Cross-Project Sharing with '5 geschiedenis.tex' (Viewer perspective)...");
+        $this->comment("\nTesting Cross-Project Sharing (Viewer perspective) with AAA, BBB and CCC...");
 
         // 1. Setup two users
         $owner = User::create([
@@ -42,37 +42,37 @@ class AuditCompilers extends Command
             'password' => bcrypt('password')
         ]);
 
-        // 2. Setup Project BBB (The dependency)
+        // 2. Setup Project BBB
         $projectBBB = Project::create(['name' => 'bbb', 'user_id' => $owner->id]);
-        $projectBBB->files()->create([
-            'name' => 'napoleon.tex',
-            'type' => 'file',
-            'extension' => 'tex',
-            'content' => 'Napoleon was hier in BBB.'
-        ]);
+        $projectBBB->files()->create(['name' => 'napoleon.tex', 'type' => 'file', 'extension' => 'tex', 'content' => 'Napoleon content']);
 
-        // 3. Setup Project AAA (The main project)
+        // 3. Setup Project CCC
+        $projectCCC = Project::create(['name' => 'ccc', 'user_id' => $owner->id]);
+        $projectCCC->files()->create(['name' => '4_liberalisme.tex', 'type' => 'file', 'extension' => 'tex', 'content' => 'Liberalisme content']);
+
+        // 4. Setup Project AAA (Main)
         $projectAAA = Project::create(['name' => 'aaa', 'user_id' => $owner->id]);
         $mainFile = $projectAAA->files()->create([
             'name' => '5 geschiedenis.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => "\\documentclass{article}\n\\begin{document}\nHoofdtest: \\include{../bbb/napoleon}\n\\end{document}"
+            'content' => "\\documentclass{article}\n\\begin{document}\nMain\n\\include{../bbb/napoleon}\n\\include{../ccc/4_liberalisme}\n\\end{document}"
         ]);
 
-        // 4. BELANGRIJK: Deel BEIDE projecten met de Viewer
+        // 5. Deel ALLES met de Viewer
         $projectAAA->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
         $projectBBB->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
+        $projectCCC->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
 
-        // 5. Compile as Viewer
-        $this->info("  -> Attempting compile as Viewer (ID: {$viewer->id})...");
+        // 6. Compile as Viewer
+        $this->info("  -> Attempting triple-project compile as Viewer...");
         auth()->login($viewer);
         
         $action = new \App\Actions\CompileFileAction();
         try {
             $res = $action->execute($mainFile);
             if ($res['type'] === 'pdf') {
-                $this->info("  [OK] '5 geschiedenis.tex' compilation SUCCESSFUL for Viewer.");
+                $this->info("  [OK] Triple-project compilation SUCCESSFUL for Viewer.");
             } else {
                 $this->error("  [FAIL] Compilation FAILED.");
                 $this->line("  Raw Output: " . $res['output']);
@@ -83,6 +83,7 @@ class AuditCompilers extends Command
 
         // Cleanup
         $projectBBB->delete();
+        $projectCCC->delete();
         $projectAAA->delete();
         $owner->delete();
         $viewer->delete();

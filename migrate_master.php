@@ -30,15 +30,13 @@ foreach ($docsRaw as $line) {
 
 $userFilesPath = "/var/www/old_user_files";
 
-// 2. GLOBAL INDEX BOUWEN (Voor alle bestanden in alle projecten)
+// 2. GLOBAL INDEX BOUWEN (Voor linked files)
 $globalIndex = []; 
-$projectIdToName = [];
 
 foreach ($projectsRaw as $line) {
     $p = json_decode($line, true);
     if (!$p) continue;
     $pid = $p['_id']['$oid'] ?? (string)$p['_id'];
-    $projectIdToName[$pid] = $p['name'];
     
     $indexFiles = function($folder, $currentPath = "") use (&$indexFiles, &$globalIndex, $pid, $docsLookup, $userFilesPath) {
         if (isset($folder['docs'])) {
@@ -70,80 +68,55 @@ foreach ($projectsRaw as $line) {
     }
 }
 
-echo "🗺️ Global index built with " . count($globalIndex) . " entries.\n";
-
 // 3. RECURSIEVE IMPORT FUNCTIE (Met link resolutie)
 function importFolderRecursive($mongoFolder, $projectId, $docsLookup, $userFilesPath, $globalIndex, $parentId = null) {
-    // Importeer Docs
     if (isset($mongoFolder['docs'])) {
         foreach ($mongoFolder['docs'] as $doc) {
             $id = $doc['_id']['$oid'] ?? (string)$doc['_id'];
-            $content = $docsLookup[$id] ?? "";
-            
             File::create([
                 'project_id' => $projectId, 'parent_id' => $parentId, 'name' => $doc['name'],
                 'type' => 'file', 'extension' => pathinfo($doc['name'], PATHINFO_EXTENSION) ?: 'tex',
-                'content' => $content
+                'content' => $docsLookup[$id] ?? ""
             ]);
         }
     }
 
-    // Importeer FileRefs (En resolve links!)
     if (isset($mongoFolder['fileRefs'])) {
         foreach ($mongoFolder['fileRefs'] as $f) {
-            $binary = null;
-            $text = null;
+            $binary = null; $text = null;
             
-            // Is dit een LINK?
             if (isset($f['linkedFileData']['source_project_id'])) {
                 $sourcePid = $f['linkedFileData']['source_project_id']['$oid'] ?? (string)$f['linkedFileData']['source_project_id'];
                 $sourcePath = ltrim($f['linkedFileData']['source_entity_path'], '/');
-                
                 if (isset($globalIndex["$sourcePid:$sourcePath"])) {
                     $data = $globalIndex["$sourcePid:$sourcePath"];
-                    if ($data['type'] === 'text') {
-                        $text = $data['content'];
-                    } else {
-                        $binary = $data['content'];
-                    }
-                    echo "🔗 Resolved link: {$f['name']} from project {$sourcePid}\n";
-                } else {
-                    echo "❌ Failed to resolve link: {$f['name']} (Path: $sourcePath in Project: $sourcePid)\n";
+                    if ($data['type'] === 'text') $text = $data['content']; else $binary = $data['content'];
                 }
             } else {
-                // Gewoon lokaal bestand
                 $id = $f['_id']['$oid'] ?? (string)$f['_id'];
                 $filePath = $userFilesPath . "/" . $id;
-                if (file_exists($filePath)) {
-                    $binary = file_get_contents($filePath);
-                } else {
-                    echo "⚠️ Missing physical file: {$f['name']} (ID: $id)\n";
-                }
+                if (file_exists($filePath)) $binary = file_get_contents($filePath);
             }
 
             File::create([
                 'project_id' => $projectId, 'parent_id' => $parentId, 'name' => $f['name'],
                 'type' => 'file', 'extension' => pathinfo($f['name'], PATHINFO_EXTENSION),
-                'content' => $text,
-                'binary_content' => $binary
+                'content' => $text, 'binary_content' => $binary,
+                'preferred_compiler' => 'xelatex' // Standaard XeLaTeX voor alles
             ]);
         }
     }
 
-    // Importeer Mappen
     if (isset($mongoFolder['folders'])) {
         foreach ($mongoFolder['folders'] as $sub) {
-            $folder = File::create([
-                'project_id' => $projectId, 'parent_id' => $parentId, 'name' => $sub['name'], 'type' => 'folder'
-            ]);
+            $folder = File::create(['project_id' => $projectId, 'parent_id' => $parentId, 'name' => $sub['name'], 'type' => 'folder']);
             importFolderRecursive($sub, $projectId, $docsLookup, $userFilesPath, $globalIndex, $folder->id);
         }
     }
 }
 
 // 4. UITVOERING
-echo "🧹 Wiping existing data for fresh start...\n";
-Project::query()->delete(); // Harde wipe van alle projecten
+Project::query()->delete();
 
 foreach ($projectsRaw as $line) {
     $p = json_decode($line, true);
@@ -151,20 +124,11 @@ foreach ($projectsRaw as $line) {
     $ownerId = $p['owner_ref']['$oid'] ?? (string)$p['owner_ref'];
     $email = $userMap[$ownerId] ?? "joachim.vanmeirvenne@atheneumkapellen.be";
     
-    echo "🏗️ Migrating: {$p['name']} for {$email}\n";
-    $user = User::where('email', $email)->first() ?: User::create([
-        'email' => $email, 'name' => explode('@', $email)[0], 'password' => bcrypt('password'), 'email_verified_at' => now()
-    ]);
+    $user = User::where('email', $email)->first();
+    if (!$user) continue;
 
-    $project = Project::create([
-        'user_id' => $user->id,
-        'name' => $p['name'],
-        'description' => "Migrated from Overleaf"
-    ]);
-
-    if (isset($p['rootFolder'][0])) {
-        importFolderRecursive($p['rootFolder'][0], $project->id, $docsLookup, $userFilesPath, $globalIndex);
-    }
+    $project = Project::create(['user_id' => $user->id, 'name' => $p['name'], 'description' => "Migrated from Overleaf"]);
+    if (isset($p['rootFolder'][0])) importFolderRecursive($p['rootFolder'][0], $project->id, $docsLookup, $userFilesPath, $globalIndex);
 }
 
-echo "✅ MASTER MIGRATION COMPLETE!\n";
+echo "✅ MASTER MIGRATION V8 COMPLETE!\n";

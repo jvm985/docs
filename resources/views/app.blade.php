@@ -14,21 +14,9 @@
         <!-- Scripts -->
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"], 'build_v8')
-        <script>
-            // Hard refresh if we detect an old version in the DOM
-            window.addEventListener('DOMContentLoaded', () => {
-                const version = document.querySelector('meta[name="app-version"]')?.content;
-                const currentManifest = "{{ is_file(public_path('build/manifest.json')) ? md5_file(public_path('build/manifest.json')) : 'none' }}";
-                if (version && version !== currentManifest) {
-                    console.log('Old version detected, forcing reload...');
-                    window.location.reload(true);
-                }
-            });
-        </script>
-        <meta name="app-version" content="{{ is_file(public_path('build/manifest.json')) ? md5_file(public_path('build/manifest.json')) : time() }}">
         @inertiaHead
     </head>
     <body class="font-sans antialiased">
-        <div id="app_v8" data-page="{{ json_encode($page) }}"></div>
+        @inertia
     </body>
 </html>

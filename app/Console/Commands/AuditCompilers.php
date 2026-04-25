@@ -141,6 +141,18 @@ class AuditCompilers extends Command
         $this->info("  -> Attempting compile as Viewer (ID: {$viewer->id})...");
         auth()->login($viewer);
         
+        // DEBUG DISK
+        $workspaceDir = storage_path("app/workspaces/user_{$viewer->id}");
+        $this->info("  -> Checking disk contents in: $workspaceDir");
+        if (is_dir($workspaceDir)) {
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($workspaceDir));
+            foreach ($files as $f) {
+                if (!$f->isDir()) $this->line("     - " . str_replace($workspaceDir, "", $f->getPathname()));
+            }
+        } else {
+            $this->error("     [ERROR] Workspace directory DOES NOT EXIST!");
+        }
+
         $action = new \App\Actions\CompileFileAction();
         try {
             $res = $action->execute($mainFile);

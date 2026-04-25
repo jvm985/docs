@@ -3,63 +3,47 @@
 namespace App\Actions;
 
 use App\Models\File;
-use App\Models\Project;
 use App\Services\Compilers\CompilerFactory;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class CompileFileAction
 {
     public function execute(File $file, array $options = []): array
     {
-        // Workspace map is ALTIJD van de ingelogde gebruiker, 
-        // ook als hij een gedeeld project van iemand anders compileert!
+        // De workspace map is er al en is up-to-date gehouden door de FileController
         $currentUserId = auth()->id();
         $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
         
         if (!is_dir($workspaceDir)) {
+            // Alleen als de map echt weg is (bijv. na server verhuizing)
+            // bouwen we hem eenmalig opnieuw op.
             mkdir($workspaceDir, 0777, true);
+            $this->rebuildWorkspace(auth()->user(), $workspaceDir);
         }
 
-        // Synchroniseer de HELE workspace (eigen + gedeeld + publiek)
-        $this->syncUserWorkspace(auth()->user(), $workspaceDir);
-        
         $compiler = CompilerFactory::make($file);
         
         return $compiler->compile($file, $workspaceDir, $options);
     }
 
-    private function syncUserWorkspace($user, string $workspaceDir): void
+    /**
+     * Nood-herstel van de workspace mocht de schijf leeg zijn.
+     */
+    private function rebuildWorkspace($user, string $workspaceDir): void
     {
-        // Haal alle projecten op waar deze gebruiker toegang toe heeft
-        $myProjects = $user->projects;
-        $sharedProjects = $user->sharedProjects;
-        $publicProjects = Project::where('is_public', true)->get();
+        $allProjects = $user->projects->merge($user->sharedProjects)->unique('id');
 
-        $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
-
-        foreach ($allAccessibleProjects as $project) {
-            $projectFolderName = $project->name;
-            $projectPath = $workspaceDir . '/' . $projectFolderName;
-            
-            if (!is_dir($projectPath)) {
-                mkdir($projectPath, 0777, true);
-            }
+        foreach ($allProjects as $project) {
+            $projectPath = $workspaceDir . '/' . $project->name;
+            if (!is_dir($projectPath)) mkdir($projectPath, 0777, true);
 
             foreach ($project->files as $projectFile) {
                 if ($projectFile->type === 'file') {
-                    $relativePath = $projectFolderName . '/' . $projectFile->getPath();
-                    $fullPath = $workspaceDir . '/' . $relativePath;
-
-                    $dir = dirname($fullPath);
-                    if (!is_dir($dir)) {
-                        mkdir($dir, 0777, true);
-                    }
-
+                    $fullPath = $workspaceDir . '/' . $project->name . '/' . $projectFile->getPath();
+                    if (!is_dir(dirname($fullPath))) mkdir(dirname($fullPath), 0777, true);
+                    
                     $content = $projectFile->binary_content ?? $projectFile->content;
-                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
-                        file_put_contents($fullPath, $content);
-                    }
+                    file_put_contents($fullPath, $content);
                 }
             }
         }

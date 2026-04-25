@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['project_id', 'parent_id', 'name', 'type', 'extension', 'content', 'binary_content'])]
+#[Fillable(['project_id', 'parent_id', 'name', 'type', 'extension', 'content', 'binary_content', 'preferred_compiler'])]
 class File extends Model
 {
     public function project()

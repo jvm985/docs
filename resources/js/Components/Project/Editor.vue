@@ -66,6 +66,12 @@ const autoSave = (content) => {
     }, 1000);
 };
 
+const updatePreferredCompiler = () => {
+    axios.patch(route('files.update', props.file.id), {
+        preferred_compiler: props.file.preferred_compiler
+    });
+};
+
 const handleCompile = () => {
     let code = null;
     if (ext.value === 'r' && view) {
@@ -77,7 +83,7 @@ const handleCompile = () => {
             code = line.text;
         }
     }
-    emit('compile', selectedCompiler.value, code);
+    emit('compile', props.file.preferred_compiler, code);
 };
 
 const initEditor = () => {
@@ -113,12 +119,24 @@ onMounted(() => {
         <div class="flex justify-between items-center p-2 bg-gray-100 border-b border-gray-300">
             <div class="flex items-center gap-4">
                 <span class="text-sm font-mono font-bold">{{ file?.name }}</span>
-                <select v-if="ext === 'tex'" v-model="selectedCompiler" class="text-xs border-gray-300 rounded py-0.5">
-                    <option v-for="c in ['pdflatex', 'xelatex', 'lualatex', 'bibtex', 'biber']" :key="c" :value="c">{{ c }}</option>
-                </select>
             </div>
             <div class="flex gap-4 items-center">
                 <span class="text-[10px] text-green-500 font-bold font-mono">🔥 FINAL-FIX-V5</span>
+                
+                <!-- Compiler Selector for LaTeX -->
+                <div v-if="ext === 'tex'" class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500 uppercase font-bold">Engine:</span>
+                    <select 
+                        v-model="file.preferred_compiler" 
+                        @change="updatePreferredCompiler"
+                        class="text-xs border-gray-300 rounded py-0.5 px-2 bg-gray-50 focus:border-blue-500 focus:ring-blue-500"
+                    >
+                        <option value="pdflatex">pdfLaTeX</option>
+                        <option value="xelatex">XeLaTeX</option>
+                        <option value="lualatex">LuaLaTeX</option>
+                    </select>
+                </div>
+
                 <button 
                     v-if="['tex', 'typ', 'md', 'rmd', 'r'].includes(ext)"
                     dusk="compile-button"

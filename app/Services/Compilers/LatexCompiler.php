@@ -11,7 +11,7 @@ class LatexCompiler implements CompilerInterface
 {
     public function compile(File $file, string $tempDir, array $options = []): array
     {
-        $compiler = $options['compiler'] ?? 'pdflatex';
+        $compiler = $file->preferred_compiler ?: ($options['compiler'] ?? 'pdflatex');
         $cmd = "/usr/bin/{$compiler}";
         
         $projectDir = $tempDir . '/' . $file->project->name;

@@ -12,76 +12,54 @@ use Illuminate\Support\Str;
 class AuditCompilers extends Command
 {
     protected $signature = 'app:audit-compilers';
-    protected $description = 'Deep audit of all document compilers including cross-project sharing';
+    protected $description = 'Deep audit of all document compilers including migrated projects';
 
     public function handle()
     {
-        $this->comment("Starting Deep Audit (TEMPORARY WORKSPACE MODEL)...");
+        $this->comment("Starting Migrated Project Audit...");
 
-        $user = User::first() ?: User::factory()->create(['email' => 'audit@example.com']);
-        auth()->login($user);
-
-        $this->testCrossProjectSharing();
+        $this->testMigratedProjectIntegrity();
 
         $this->info("\nAudit Complete.");
     }
 
-    protected function testCrossProjectSharing()
+    protected function testMigratedProjectIntegrity()
     {
-        $this->comment("\nTesting Rigorous Scenario: project 'aaa' with '5 geschiedenis.tex'...");
+        $this->comment("\nTesting Migrated Project: 6SWO (Complex Structure)...");
 
-        // 1. Setup users
-        $owner = User::create(['name' => 'Owner', 'email' => 'owner_'.Str::random(5).'@test.com', 'password' => 'secret']);
-        $viewer = User::create(['name' => 'Viewer', 'email' => 'viewer_'.Str::random(5).'@test.com', 'password' => 'secret']);
+        $user = User::where('email', 'joachim.vanmeirvenne@atheneumkapellen.be')->first();
+        if (!$user) {
+            $this->error("  [FAIL] User not found!");
+            return;
+        }
 
-        // 2. Setup Project BBB (dependency)
-        $projectBBB = Project::create(['name' => 'bbb', 'user_id' => $owner->id]);
-        $projectBBB->files()->create(['name' => 'napoleon.tex', 'type' => 'file', 'extension' => 'tex', 'content' => 'Napoleon was hier.']);
+        $project = Project::where('user_id', $user->id)->where('name', '6SWO')->first();
+        if (!$project) {
+            $this->error("  [FAIL] Project 6SWO not found!");
+            return;
+        }
 
-        // 3. Setup Project AAA (main)
-        $projectAAA = Project::create(['name' => 'aaa', 'user_id' => $owner->id]);
+        $mainFile = $project->files()->where('name', 'cursus_irishof.tex')->first();
+        if (!$mainFile) {
+            $this->error("  [FAIL] main file cursus_irishof.tex not found!");
+            return;
+        }
         
-        // Nested file in AAA
-        $projectAAA->files()->create([
-            'name' => 'hoofdstukken/1_congres.tex',
-            'type' => 'file',
-            'extension' => 'tex',
-            'content' => 'Content van het congres.'
-        ]);
-
-        // Main file in AAA
-        $mainFile = $projectAAA->files()->create([
-            'name' => '5 geschiedenis.tex',
-            'type' => 'file',
-            'extension' => 'tex',
-            'content' => "\\documentclass{article}\n\\begin{document}\nStart\n\\include{hoofdstukken/1_congres}\n\\include{../bbb/napoleon}\n\\end{document}"
-        ]);
-
-        // 4. Share both with Viewer
-        $projectAAA->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
-        $projectBBB->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
-
-        // 5. Compile as Viewer
-        $this->info("  -> Attempting rigorous compile as Viewer (ID: {$viewer->id})...");
-        auth()->login($viewer);
+        $this->info("  -> Attempting compile of 6SWO/cursus_irishof.tex...");
+        auth()->login($user);
         
         $action = new \App\Actions\CompileFileAction();
         try {
             $res = $action->execute($mainFile);
             if ($res['type'] === 'pdf') {
-                $this->info("  [OK] Rigorous compilation SUCCESSFUL for Viewer.");
+                $this->info("  [OK] Migrated project 6SWO compilation SUCCESSFUL.");
+                $this->info("  [OK] PDF Generated at: " . $res['url']);
             } else {
-                $this->error("  [FAIL] Compilation FAILED.");
+                $this->error("  [FAIL] Migrated project compilation FAILED.");
                 $this->line("  Raw Output: \n" . $res['output']);
             }
         } catch (\Exception $e) {
             $this->error("  [EXCEPTION] " . $e->getMessage());
         }
-
-        // Cleanup
-        $projectBBB->delete();
-        $projectAAA->delete();
-        $owner->delete();
-        $viewer->delete();
     }
 }

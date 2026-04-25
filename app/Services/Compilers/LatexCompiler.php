@@ -14,31 +14,24 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        $projectName = $file->project->name;
-        $workspacePath = $projectName . '/' . $file->getPath();
+        $projectDir = $tempDir . '/' . $file->project->name;
+        $relativePath = $file->getPath();
         
-        // MIRROR: Zorg dat alle submappen van het project ook in de root bestaan
-        // Zodat LaTeX vanuit de root kan schrijven naar 'hoofdstukken/...'
-        $this->mirrorProjectStructure($tempDir, $projectName);
-        
-        // Forceer permissies via LOKAAL configuratiebestand
-        file_put_contents($tempDir . '/texmf.cnf', "openout_any = a\nopenin_any = a\n");
-        
-        $process = Process::path($tempDir)
+        // We draaien vanuit de projectmap zelf
+        $process = Process::path($projectDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
-                'TEXMFCNF' => $tempDir . ':',
                 'openout_any' => 'a',
                 'openin_any' => 'a'
             ])
-            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($workspacePath));
+            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($file->name));
         
         $output = $process->output() ?: $process->errorOutput();
         
-        $pdfName = pathinfo($workspacePath, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $tempDir . '/' . dirname($workspacePath) . '/' . $pdfName;
-        $fullPdfPath = str_replace('/./', '/', $fullPdfPath);
+        // PDF wordt in de projectmap gegenereerd
+        $pdfName = pathinfo($file->name, PATHINFO_FILENAME) . '.pdf';
+        $fullPdfPath = $projectDir . '/' . $pdfName;
 
         $url = null;
         $type = 'text';
@@ -59,27 +52,5 @@ class LatexCompiler implements CompilerInterface
             'url' => $url,
             'result' => null
         ];
-    }
-
-    private function mirrorProjectStructure(string $workspaceRoot, string $projectName): void
-    {
-        $projectPath = $workspaceRoot . '/' . $projectName;
-        if (!is_dir($projectPath)) return;
-
-        $directories = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($projectPath, \RecursiveDirectoryIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        foreach ($directories as $item) {
-            if ($item->isDir()) {
-                // Maak de submap (bijv. 'hoofdstukken') aan in de root
-                $relativePath = str_replace($projectPath . '/', '', $item->getPathname());
-                $targetPath = $workspaceRoot . '/' . $relativePath;
-                if (!is_dir($targetPath)) {
-                    mkdir($targetPath, 0777, true);
-                }
-            }
-        }
     }
 }

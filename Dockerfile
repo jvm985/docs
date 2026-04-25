@@ -50,6 +50,10 @@ RUN apt-get update && apt-get install -y \
     pandoc \
     && rm -rf /var/lib/apt/lists/*
 
+# Versoepel TeX Live beveiliging om schrijven naar ../ mappen toe te staan (nodig voor gedeelde projecten)
+RUN sed -i 's/openout_any = p/openout_any = a/' /usr/share/texlive/texmf-dist/web2c/texmf.cnf || true && \
+    sed -i 's/openin_any = p/openin_any = a/' /usr/share/texlive/texmf-dist/web2c/texmf.cnf || true
+
 # Install Typst
 RUN curl -L https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ && \
     mv typst-x86_64-unknown-linux-musl/typst /usr/local/bin/ && \

@@ -21,6 +21,11 @@ ssh $SERVER "mkdir -p $DEST && cd $DEST && \
     sudo GOOGLE_CLIENT_ID='$G_ID' \
          GOOGLE_CLIENT_SECRET='$G_SECRET' \
          APP_KEY='$A_KEY' \
+         docker compose down && \
+    sudo docker volume rm 11-docs_docs_public || true && \
+    sudo GOOGLE_CLIENT_ID='$G_ID' \
+         GOOGLE_CLIENT_SECRET='$G_SECRET' \
+         APP_KEY='$A_KEY' \
          docker compose up -d --build"
 
 echo "✅ Deployment voltooid!"

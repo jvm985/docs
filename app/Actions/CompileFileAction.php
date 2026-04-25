@@ -29,9 +29,9 @@ class CompileFileAction
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
         $user->refresh();
-        $projectIds = $user->projects()->pluck('id')
-            ->merge($user->sharedProjects()->pluck('id'))
-            ->merge(Project::where('is_public', true)->pluck('id'))
+        $projectIds = $user->projects()->pluck('projects.id')
+            ->merge($user->sharedProjects()->pluck('projects.id'))
+            ->merge(Project::where('is_public', true)->pluck('projects.id'))
             ->unique()
             ->values();
         

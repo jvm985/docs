@@ -117,7 +117,8 @@ onMounted(() => {
                     <option v-for="c in ['pdflatex', 'xelatex', 'lualatex', 'bibtex', 'biber']" :key="c" :value="c">{{ c }}</option>
                 </select>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-4 items-center">
+                <span class="text-[10px] text-gray-400 font-mono">System: V3.0.1</span>
                 <button 
                     v-if="['tex', 'typ', 'md', 'rmd', 'r'].includes(ext)"
                     dusk="compile-button"

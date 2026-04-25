@@ -14,22 +14,24 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // De compiler draait in de projectmap (bijv. /temp/run_XYZ/aaa/)
-        // Hierdoor werkt \include{hoofdstukken/x} én \include{../bbb/y} direct!
+        $projectDir = $tempDir . '/' . $file->project->name;
         
-        $process = Process::path($tempDir)
+        // Forceer permissies via LOKAAL configuratiebestand in de projectmap
+        file_put_contents($projectDir . '/texmf.cnf', "openout_any = a\nopenin_any = a\n");
+        
+        $process = Process::path($projectDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
                 'openout_any' => 'a',
                 'openin_any' => 'a'
             ])
-            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($file->name));
+            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" -cnf-line=\"openin_any=a\" " . escapeshellarg($file->name));
         
         $output = $process->output() ?: $process->errorOutput();
         
         $pdfName = pathinfo($file->name, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $tempDir . '/' . $pdfName;
+        $fullPdfPath = $projectDir . '/' . $pdfName;
 
         $url = null;
         $type = 'text';

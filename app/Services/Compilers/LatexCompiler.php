@@ -19,7 +19,11 @@ class LatexCompiler implements CompilerInterface
         $relativePath = $file->getPath();
         
         $process = Process::path($projectDir)
-            ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
+            ->env([
+                'HOME' => '/tmp', 
+                'PATH' => '/usr/bin:/bin:/usr/local/bin',
+                'openout_any' => 'a'
+            ])
             ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
         
         $output = $process->output() ?: $process->errorOutput();

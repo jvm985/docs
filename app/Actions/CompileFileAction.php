@@ -44,8 +44,6 @@ class CompileFileAction
         $publicProjects = Project::where('is_public', true)->get();
 
         $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
-        
-        // DEBUG: \Log::info("Syncing workspace for user {$user->id}. Projects: " . $allAccessibleProjects->pluck('name')->implode(', '));
 
         foreach ($allAccessibleProjects as $project) {
             $projectFolderName = $project->name;
@@ -67,8 +65,23 @@ class CompileFileAction
 
                     $content = $projectFile->binary_content ?? $projectFile->content;
                     
-                    // Alleen schrijven als de inhoud anders is of het bestand niet bestaat
-                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
+                    // Slimme synchronisatie: alleen schrijven als het echt moet
+                    $shouldWrite = false;
+                    if (!file_exists($fullPath)) {
+                        $shouldWrite = true;
+                    } else {
+                        // Bij tekstbestanden schrijven we altijd over voor de zekerheid (is snel)
+                        // Bij binaire bestanden checken we de inhoud om kopieertijd te besparen
+                        if ($projectFile->binary_content) {
+                            if (file_get_contents($fullPath) !== $content) {
+                                $shouldWrite = true;
+                            }
+                        } else {
+                            $shouldWrite = true;
+                        }
+                    }
+
+                    if ($shouldWrite) {
                         file_put_contents($fullPath, $content);
                     }
                 }

@@ -14,7 +14,8 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // Werkmap is de ROOT van de workspace
+        // We draaien de compiler nu vanuit de ROOT van de workspace
+        // De paden worden dan: ProjectNaam/Pad/Naar/Bestand.tex
         $workspacePath = $file->project->name . '/' . $file->getPath();
         
         // Forceer permissies via een LOKAAL configuratiebestand in de werkmap
@@ -32,6 +33,8 @@ class LatexCompiler implements CompilerInterface
         
         $output = $process->output() ?: $process->errorOutput();
         
+        // PDF wordt gegenereerd in de workspace root of in de projectmap afhankelijk van pdflatex versie
+        // Maar meestal in de map van het bronbestand: ProjectNaam/Pad/Naar/Bestand.pdf
         $pdfName = pathinfo($workspacePath, PATHINFO_FILENAME) . '.pdf';
         $fullPdfPath = $tempDir . '/' . dirname($workspacePath) . '/' . $pdfName;
         $fullPdfPath = str_replace('/./', '/', $fullPdfPath);

@@ -105,8 +105,16 @@ class AuditCompilers extends Command
         $this->comment("\nTesting Cross-Project Sharing (Viewer perspective)...");
 
         // 1. Setup two users
-        $owner = User::factory()->create(['name' => 'Audit Owner']);
-        $viewer = User::factory()->create(['name' => 'Audit Viewer']);
+        $owner = User::create([
+            'name' => 'Audit Owner',
+            'email' => 'owner_' . Str::random(5) . '@audit.com',
+            'password' => bcrypt('password')
+        ]);
+        $viewer = User::create([
+            'name' => 'Audit Viewer',
+            'email' => 'viewer_' . Str::random(5) . '@audit.com',
+            'password' => bcrypt('password')
+        ]);
 
         // 2. Setup Project A (The dependency)
         $projectA = Project::create(['name' => 'shared_lib', 'user_id' => $owner->id]);

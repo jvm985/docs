@@ -24,6 +24,7 @@ class LatexCompiler implements CompilerInterface
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
+                'TEXMFCNF' => '/var/www/texmf:', // De dubbele punt aan het eind is essentieel!
                 'openout_any' => 'a',
                 'openin_any' => 'a'
             ])

@@ -75,9 +75,14 @@ COPY . /var/www
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 RUN npm install && npm run build
 
+# Forceer LaTeX permissies via een eigen configuratiebestand
+RUN mkdir -p /var/www/texmf && \
+    echo "openout_any = a" > /var/www/texmf/texmf.cnf && \
+    echo "openin_any = a" >> /var/www/texmf/texmf.cnf
+
 # Adjust permissions
 RUN mkdir -p /var/www/storage/app/workspaces && \
-    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public
+    chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf
 
 EXPOSE 9000
 CMD ["php-fpm"]

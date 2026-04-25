@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\File;
+use App\Models\Project;
 use App\Services\Compilers\CompilerFactory;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -11,28 +12,33 @@ class CompileFileAction
 {
     public function execute(File $file, array $options = []): array
     {
-        $userId = $file->project->user_id;
-        $workspaceDir = storage_path("app/workspaces/user_{$userId}");
+        // Workspace map is ALTIJD van de ingelogde gebruiker, 
+        // ook als hij een gedeeld project van iemand anders compileert!
+        $currentUserId = auth()->id();
+        $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
         
         if (!is_dir($workspaceDir)) {
             mkdir($workspaceDir, 0777, true);
         }
 
-        // Synchronize database files to the persistent filesystem
-        $this->syncUserWorkspace($file->project->user, $workspaceDir);
+        // Synchroniseer de HELE workspace (eigen + gedeeld + publiek)
+        $this->syncUserWorkspace(auth()->user(), $workspaceDir);
         
         $compiler = CompilerFactory::make($file);
         
-        // Use the persistent workspace directory
         return $compiler->compile($file, $workspaceDir, $options);
     }
 
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
-        // 1. Get all current files from DB to track what should exist
-        $existingFiles = [];
-        
-        foreach ($user->projects as $project) {
+        // Haal alle projecten op waar deze gebruiker toegang toe heeft
+        $myProjects = $user->projects;
+        $sharedProjects = $user->sharedProjects;
+        $publicProjects = Project::where('is_public', true)->get();
+
+        $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+
+        foreach ($allAccessibleProjects as $project) {
             $projectFolderName = $project->name;
             $projectPath = $workspaceDir . '/' . $projectFolderName;
             
@@ -44,14 +50,12 @@ class CompileFileAction
                 if ($projectFile->type === 'file') {
                     $relativePath = $projectFolderName . '/' . $projectFile->getPath();
                     $fullPath = $workspaceDir . '/' . $relativePath;
-                    $existingFiles[] = $fullPath;
 
                     $dir = dirname($fullPath);
                     if (!is_dir($dir)) {
                         mkdir($dir, 0777, true);
                     }
 
-                    // Only write if content is different or file doesn't exist
                     $content = $projectFile->binary_content ?? $projectFile->content;
                     if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
                         file_put_contents($fullPath, $content);
@@ -59,17 +63,5 @@ class CompileFileAction
                 }
             }
         }
-
-        // 2. Optional: Cleanup files in workspace that are no longer in DB
-        // (Skipped for now to protect auxiliary compiler files like .aux, .log, .RData)
-    }
-
-    private function recursiveRemoveDir($dir): void
-    {
-        if (!is_dir($dir)) return;
-        foreach (array_diff(scandir($dir), array('.', '..')) as $file) {
-            (is_dir("$dir/$file")) ? $this->recursiveRemoveDir("$dir/$file") : unlink("$dir/$file");
-        }
-        rmdir($dir);
     }
 }

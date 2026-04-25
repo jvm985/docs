@@ -6,6 +6,7 @@ use App\Actions\CompileFileAction;
 use App\Http\Requests\CompileFileRequest;
 use App\Models\File;
 use App\Models\Project;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,8 @@ use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
+    use AuthorizesRequests;
+
     public function upload(Request $request): JsonResponse
     {
         $request->validate([
@@ -22,7 +25,7 @@ class FileController extends Controller
         ]);
 
         $project = Project::findOrFail($request->project_id);
-        if ($project->user_id !== auth()->id()) abort(403);
+        $this->authorize('update', $project);
 
         $uploadedFile = $request->file('file');
         $name = $uploadedFile->getClientOriginalName();
@@ -52,7 +55,7 @@ class FileController extends Controller
         ]);
 
         $project = Project::findOrFail($request->project_id);
-        if ($project->user_id !== auth()->id()) abort(403);
+        $this->authorize('update', $project);
 
         $file = File::create([
             'project_id' => $request->project_id,
@@ -68,7 +71,7 @@ class FileController extends Controller
 
     public function update(Request $request, File $file): JsonResponse
     {
-        if ($file->project->user_id !== auth()->id()) abort(403);
+        $this->authorize('update', $file->project);
 
         $file->update($request->only('content', 'name', 'parent_id'));
 
@@ -77,7 +80,7 @@ class FileController extends Controller
 
     public function move(Request $request, File $file): JsonResponse
     {
-        if ($file->project->user_id !== auth()->id()) abort(403);
+        $this->authorize('update', $file->project);
 
         $request->validate(['parent_id' => 'nullable|exists:files,id']);
 
@@ -88,7 +91,7 @@ class FileController extends Controller
 
     public function duplicate(File $file): JsonResponse
     {
-        if ($file->project->user_id !== auth()->id()) abort(403);
+        $this->authorize('update', $file->project);
 
         $newFile = $file->replicate();
         $newFile->name = 'Copy of ' . $file->name;
@@ -99,7 +102,7 @@ class FileController extends Controller
 
     public function destroy(File $file): JsonResponse
     {
-        if ($file->project->user_id !== auth()->id()) abort(403);
+        $this->authorize('update', $file->project);
 
         $file->delete();
 
@@ -108,6 +111,8 @@ class FileController extends Controller
 
     public function compile(CompileFileRequest $request, File $file, CompileFileAction $action): JsonResponse
     {
+        $this->authorize('view', $file->project);
+        
         $result = $action->execute($file, $request->validated());
 
         return response()->json($result);

@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     Route::resource('projects', ProjectController::class);
+    Route::patch('projects/{project}/share', [ProjectController::class, 'updateSharing'])->name('projects.share.update');
 
     Route::get('/debug-frontend', function () {
         return Inertia::render('Debug/FrontendTest', [

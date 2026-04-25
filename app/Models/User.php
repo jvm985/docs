@@ -22,6 +22,13 @@ class User extends Authenticatable
         return $this->hasMany(Project::class);
     }
 
+    public function sharedProjects()
+    {
+        return $this->belongsToMany(Project::class, 'project_user')
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
     /**
      * Get the attributes that should be cast.
      *

@@ -16,6 +16,19 @@ class LatexCompiler implements CompilerInterface
         
         $projectDir = $tempDir . '/' . $file->project->name;
         
+        // SYMLINK FONTS: Zorg dat de fonts ook lokaal in de projectmap staan
+        // Hierdoor vindt XeLaTeX ze ALTIJD, ongeacht de naamstelling in de config
+        $fontSource = '/usr/share/fonts/truetype/Quicksand/static';
+        if (is_dir($fontSource)) {
+            $localFontDir = $projectDir . '/fonts';
+            if (!is_dir($localFontDir)) mkdir($localFontDir, 0777, true);
+            foreach (glob("$fontSource/*.ttf") as $fontFile) {
+                @symlink($fontFile, $localFontDir . '/' . basename($fontFile));
+                // Maak ook een link direct in de root voor extra compatibiliteit
+                @symlink($fontFile, $projectDir . '/' . basename($fontFile));
+            }
+        }
+
         // Forceer permissies via LOKAAL configuratiebestand in de projectmap
         file_put_contents($projectDir . '/texmf.cnf', "openout_any = a\nopenin_any = a\n");
         

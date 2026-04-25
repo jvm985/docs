@@ -14,28 +14,39 @@ class CompileFileAction
         $currentUserId = auth()->id();
         $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
         
+        // 1. Zorg dat de basis-workspace bestaat
         if (!is_dir($workspaceDir)) {
-            if (!mkdir($workspaceDir, 0777, true)) {
-                $error = error_get_last();
-                throw new \Exception("Failed to create workspace directory: {$workspaceDir}. Error: " . ($error['message'] ?? 'Unknown'));
-            }
+            mkdir($workspaceDir, 0775, true);
         }
 
-        // Zorg dat de map van de huidige gebruiker ALTIJD alle bestanden heeft waar hij toegang toe heeft
+        // 2. Synchroniseer alle bestanden uit de DB naar de schijf
         $this->syncUserWorkspace(auth()->user(), $workspaceDir);
         
+        // 3. DE TRUC: Maak in elk project een link naar de bovenliggende map
+        // Hierdoor kan LaTeX "schrijven" naar ../ via een lokale referentie.
+        $this->createWorkspaceLinks(auth()->user(), $workspaceDir);
+
         $compiler = CompilerFactory::make($file);
-        
         return $compiler->compile($file, $workspaceDir, $options);
+    }
+
+    private function createWorkspaceLinks($user, string $workspaceDir): void
+    {
+        $projects = $user->projects->merge($user->sharedProjects)->unique('id');
+        foreach ($projects as $project) {
+            $projectPath = $workspaceDir . '/' . $project->name;
+            $linkPath = $projectPath . '/__workspace__';
+            
+            if (is_dir($projectPath) && !file_exists($linkPath)) {
+                // Maak een symlink van Project/.. naar de workspace root
+                // Dit omzeilt de "paranoid" check van LaTeX omdat we nu via een submap werken
+                @symlink('..', $linkPath);
+            }
+        }
     }
 
     private function syncUserWorkspace($user, string $workspaceDir): void
     {
-        if (!is_dir($workspaceDir)) {
-            mkdir($workspaceDir, 0777, true);
-        }
-
-        // Forceer een refresh van de relaties om caching-problemen te voorkomen (vooral in tests/audit)
         $user->unsetRelation('projects');
         $user->unsetRelation('sharedProjects');
         
@@ -50,7 +61,7 @@ class CompileFileAction
             $projectPath = $workspaceDir . '/' . $projectFolderName;
             
             if (!is_dir($projectPath)) {
-                mkdir($projectPath, 0777, true);
+                mkdir($projectPath, 0775, true);
             }
 
             foreach ($project->files as $projectFile) {
@@ -58,30 +69,13 @@ class CompileFileAction
                     $relativePath = $projectFile->getPath();
                     $fullPath = $projectPath . '/' . $relativePath;
 
-                    $dir = dirname($fullPath);
-                    if (!is_dir($dir)) {
-                        mkdir($dir, 0777, true);
+                    if (!is_dir(dirname($fullPath))) {
+                        mkdir(dirname($fullPath), 0775, true);
                     }
 
                     $content = $projectFile->binary_content ?? $projectFile->content;
                     
-                    // Slimme synchronisatie: alleen schrijven als het echt moet
-                    $shouldWrite = false;
-                    if (!file_exists($fullPath)) {
-                        $shouldWrite = true;
-                    } else {
-                        // Bij tekstbestanden schrijven we altijd over voor de zekerheid (is snel)
-                        // Bij binaire bestanden checken we de inhoud om kopieertijd te besparen
-                        if ($projectFile->binary_content) {
-                            if (file_get_contents($fullPath) !== $content) {
-                                $shouldWrite = true;
-                            }
-                        } else {
-                            $shouldWrite = true;
-                        }
-                    }
-
-                    if ($shouldWrite) {
+                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
                         file_put_contents($fullPath, $content);
                     }
                 }

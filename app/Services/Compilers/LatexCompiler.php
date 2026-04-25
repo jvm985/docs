@@ -18,9 +18,14 @@ class LatexCompiler implements CompilerInterface
         $projectDir = $tempDir . '/' . $file->project->name;
         $relativePath = $file->getPath();
         
+        // Forceer LaTeX om schrijven naar ../ mappen toe te staan via de shell command
+        // We voegen openout_any=a direct toe aan de opdrachtregel
         $process = Process::path($projectDir)
-            ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
-            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
+            ->env([
+                'HOME' => '/tmp', 
+                'PATH' => '/usr/bin:/bin:/usr/local/bin',
+            ])
+            ->run("openout_any=a openin_any=a {$cmd} -interaction=nonstopmode " . escapeshellarg($relativePath));
         
         $output = $process->output() ?: $process->errorOutput();
         

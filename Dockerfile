@@ -51,8 +51,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Versoepel TeX Live beveiliging om schrijven naar ../ mappen toe te staan (nodig voor gedeelde projecten)
-RUN sed -i 's/openout_any = p/openout_any = a/' /usr/share/texlive/texmf-dist/web2c/texmf.cnf || true && \
-    sed -i 's/openin_any = p/openin_any = a/' /usr/share/texlive/texmf-dist/web2c/texmf.cnf || true
+RUN for f in $(find /etc/texmf /usr/share/texlive -name texmf.cnf); do \
+        sed -i 's/openout_any = [pr]/openout_any = a/' $f || true; \
+        sed -i 's/openin_any = [pr]/openin_any = a/' $f || true; \
+        echo "openout_any = a" >> $f; \
+        echo "openin_any = a" >> $f; \
+    done
 
 # Install Typst
 RUN curl -L https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ && \

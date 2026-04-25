@@ -19,6 +19,8 @@ class GoogleAuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->user();
             
+            \Log::info('Google Login Attempt', ['email' => $googleUser->email]);
+
             $user = User::updateOrCreate([
                 'google_id' => $googleUser->id,
             ], [
@@ -29,10 +31,15 @@ class GoogleAuthController extends Controller
                 'email_verified_at' => now(),
             ]);
 
-            Auth::login($user);
+            Auth::login($user, true);
+            \Log::info('User logged in', ['id' => $user->id]);
 
             return redirect()->intended('dashboard');
         } catch (\Exception $e) {
+            \Log::error('Google Login Error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return redirect('login')->with('error', 'Google login failed: ' . $e->getMessage());
         }
     }

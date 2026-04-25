@@ -14,24 +14,22 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        $projectDir = $tempDir . '/' . $file->project->name;
-        $relativePath = $file->getPath();
+        // In the Flat Workspace, $file->name is already "ProjectName___Path.tex"
+        // and it is located directly in $tempDir.
         
-        // We draaien vanuit de projectmap zelf
-        $process = Process::path($projectDir)
+        $process = Process::path($tempDir)
             ->env([
                 'HOME' => '/tmp', 
                 'PATH' => '/usr/bin:/bin:/usr/local/bin',
                 'openout_any' => 'a',
                 'openin_any' => 'a'
             ])
-            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($file->name));
+            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" " . escapeshellarg($file->name));
         
         $output = $process->output() ?: $process->errorOutput();
         
-        // PDF wordt in de projectmap gegenereerd
         $pdfName = pathinfo($file->name, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $projectDir . '/' . $pdfName;
+        $fullPdfPath = $tempDir . '/' . $pdfName;
 
         $url = null;
         $type = 'text';

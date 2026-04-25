@@ -15,89 +15,68 @@ class CompileFileAction
         $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
         
         if (!is_dir($workspaceDir)) {
-            if (!mkdir($workspaceDir, 0777, true)) {
-                $error = error_get_last();
-                throw new \Exception("Failed to create workspace directory: {$workspaceDir}. Error: " . ($error['message'] ?? 'Unknown'));
-            }
+            mkdir($workspaceDir, 0777, true);
         }
 
-        // 1. Synchroniseer bestanden
-        $this->syncUserWorkspace(auth()->user(), $workspaceDir);
+        // 1. Flatten and synchronize the entire user workspace
+        $this->syncFlatWorkspace(auth()->user(), $workspaceDir);
         
-        // 2. Maak de '__workspace__' sluiproute in elk project
-        $this->createWorkspaceLinks(auth()->user(), $workspaceDir);
-
+        // 2. Prepare the active file (with path rewriting for TeX/Typst/R)
+        $compiledFile = $this->prepareActiveFileForCompilation($file, $workspaceDir);
+        
         $compiler = CompilerFactory::make($file);
         
-        return $compiler->compile($file, $workspaceDir, $options);
+        // 3. Run the compiler in the ROOT directory
+        return $compiler->compile($compiledFile, $workspaceDir, $options);
     }
 
-    private function createWorkspaceLinks($user, string $workspaceDir): void
+    private function syncFlatWorkspace($user, string $workspaceDir): void
     {
-        $myProjects = $user->projects;
-        $sharedProjects = $user->sharedProjects;
-        $publicProjects = Project::where('is_public', true)->get();
-        $allProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+        $user->refresh();
+        $allProjects = $user->projects->merge($user->sharedProjects)->merge(Project::where('is_public', true)->get())->unique('id');
 
         foreach ($allProjects as $project) {
-            $projectPath = $workspaceDir . '/' . $project->name;
-            if (is_dir($projectPath)) {
-                $linkPath = $projectPath . '/__workspace__';
-                if (!file_exists($linkPath)) {
-                    // Link naar '..' (de workspace root)
-                    @symlink('..', $linkPath);
-                }
-            }
-        }
-    }
-
-    private function syncUserWorkspace($user, string $workspaceDir): void
-    {
-        $user->unsetRelation('projects');
-        $user->unsetRelation('sharedProjects');
-        
-        $myProjects = $user->projects;
-        $sharedProjects = $user->sharedProjects;
-        $publicProjects = Project::where('is_public', true)->get();
-
-        $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
-
-        foreach ($allAccessibleProjects as $project) {
-            $projectFolderName = $project->name;
-            $projectPath = $workspaceDir . '/' . $projectFolderName;
-            
-            if (!is_dir($projectPath)) {
-                mkdir($projectPath, 0777, true);
-            }
-
             foreach ($project->files as $projectFile) {
                 if ($projectFile->type === 'file') {
-                    $relativePath = $projectFile->getPath();
-                    $fullPath = $projectPath . '/' . $relativePath;
-
-                    $dir = dirname($fullPath);
-                    if (!is_dir($dir)) {
-                        mkdir($dir, 0777, true);
-                    }
+                    // Flattened name: ProjectName___RelativePath.ext
+                    $flatName = $project->name . '___' . str_replace('/', '___', $projectFile->getPath());
+                    $fullPath = $workspaceDir . '/' . $flatName;
 
                     $content = $projectFile->binary_content ?? $projectFile->content;
-                    
-                    $shouldWrite = false;
-                    if (!file_exists($fullPath)) {
-                        $shouldWrite = true;
-                    } else {
-                        if ($projectFile->binary_content) {
-                            if (file_get_contents($fullPath) !== $content) $shouldWrite = true;
-                        } else {
-                            $shouldWrite = true;
-                        }
-                    }
-
-                    if ($shouldWrite) {
+                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
                         file_put_contents($fullPath, $content);
                     }
                 }
             }
         }
+    }
+
+    private function prepareActiveFileForCompilation(File $file, string $workspaceDir): File
+    {
+        $flatName = $file->project->name . '___' . str_replace('/', '___', $file->getPath());
+        $content = $file->content;
+
+        // Rewrite paths for LaTeX: \include{../project/file} -> \include{project___file}
+        if (in_array(strtolower($file->extension), ['tex', 'rmd', 'md', 'typ'])) {
+            // Match ../Project/Path patterns
+            $content = preg_replace_callback('/(\\include|\\input|#include|#import)\{?"?\.{2}\/([^\/\}"]+)\/([^\}"]+)"?\}?/', function($m) {
+                $project = $m[2];
+                $path = str_replace('/', '___', $m[3]);
+                // Remove extension for TeX includes if present
+                $path = preg_replace('/\.tex$/i', '', $path);
+                
+                if (str_starts_with($m[1], '#')) { // Typst
+                    return "{$m[1]} \"{$project}___{$path}.typ\"";
+                }
+                return "{$m[1]}{{$project}___{$path}}";
+            }, $content);
+        }
+
+        // Create a temporary File model for the compiler to use
+        $tempFile = $file->replicate();
+        $tempFile->name = $flatName;
+        $tempFile->content = $content;
+        
+        return $tempFile;
     }
 }

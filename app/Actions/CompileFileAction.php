@@ -11,46 +11,57 @@ class CompileFileAction
 {
     public function execute(File $file, array $options = []): array
     {
-        $tempDir = storage_path('app/temp/' . Str::random(10));
-        mkdir($tempDir, 0777, true);
-
-        try {
-            $this->prepareUserWorkspace($file, $tempDir);
-            
-            $compiler = CompilerFactory::make($file);
-            
-            // We pass the relative path including the project name
-            return $compiler->compile($file, $tempDir, $options);
-        } finally {
-            $this->recursiveRemoveDir($tempDir);
+        $userId = $file->project->user_id;
+        $workspaceDir = storage_path("app/workspaces/user_{$userId}");
+        
+        if (!is_dir($workspaceDir)) {
+            mkdir($workspaceDir, 0777, true);
         }
+
+        // Synchronize database files to the persistent filesystem
+        $this->syncUserWorkspace($file->project->user, $workspaceDir);
+        
+        $compiler = CompilerFactory::make($file);
+        
+        // Use the persistent workspace directory
+        return $compiler->compile($file, $workspaceDir, $options);
     }
 
-    private function prepareUserWorkspace(File $activeFile, string $tempDir): void
+    private function syncUserWorkspace($user, string $workspaceDir): void
     {
-        $user = $activeFile->project->user;
+        // 1. Get all current files from DB to track what should exist
+        $existingFiles = [];
+        
         foreach ($user->projects as $project) {
-            // Use project name as folder name (sanitized for paths)
             $projectFolderName = $project->name;
+            $projectPath = $workspaceDir . '/' . $projectFolderName;
             
+            if (!is_dir($projectPath)) {
+                mkdir($projectPath, 0777, true);
+            }
+
             foreach ($project->files as $projectFile) {
                 if ($projectFile->type === 'file') {
-                    $relativePath = $projectFile->getPath();
-                    $fullPath = $tempDir . '/' . $projectFolderName . '/' . $relativePath;
-                    
+                    $relativePath = $projectFolderName . '/' . $projectFile->getPath();
+                    $fullPath = $workspaceDir . '/' . $relativePath;
+                    $existingFiles[] = $fullPath;
+
                     $dir = dirname($fullPath);
                     if (!is_dir($dir)) {
                         mkdir($dir, 0777, true);
                     }
-                    
-                    if ($projectFile->binary_content) {
-                        file_put_contents($fullPath, $projectFile->binary_content);
-                    } else {
-                        file_put_contents($fullPath, $projectFile->content);
+
+                    // Only write if content is different or file doesn't exist
+                    $content = $projectFile->binary_content ?? $projectFile->content;
+                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
+                        file_put_contents($fullPath, $content);
                     }
                 }
             }
         }
+
+        // 2. Optional: Cleanup files in workspace that are no longer in DB
+        // (Skipped for now to protect auxiliary compiler files like .aux, .log, .RData)
     }
 
     private function recursiveRemoveDir($dir): void

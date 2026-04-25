@@ -14,8 +14,8 @@ class LatexCompiler implements CompilerInterface
         $compiler = $options['compiler'] ?? 'pdflatex';
         $cmd = "/usr/bin/{$compiler}";
         
-        // In the Flat Workspace, $file->name is already "ProjectName___Path.tex"
-        // and it is located directly in $tempDir.
+        // De compiler draait in de projectmap (bijv. /temp/run_XYZ/aaa/)
+        // Hierdoor werkt \include{hoofdstukken/x} én \include{../bbb/y} direct!
         
         $process = Process::path($tempDir)
             ->env([
@@ -24,7 +24,7 @@ class LatexCompiler implements CompilerInterface
                 'openout_any' => 'a',
                 'openin_any' => 'a'
             ])
-            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" " . escapeshellarg($file->name));
+            ->run("{$cmd} -interaction=nonstopmode " . escapeshellarg($file->name));
         
         $output = $process->output() ?: $process->errorOutput();
         

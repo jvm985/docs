@@ -16,7 +16,7 @@ class AuditCompilers extends Command
 
     public function handle()
     {
-        $this->comment("Starting Deep Audit of Compilers (FLAT WORKSPACE)...");
+        $this->comment("Starting Deep Audit (TEMPORARY WORKSPACE MODEL)...");
 
         $user = User::first() ?: User::factory()->create(['email' => 'audit@example.com']);
         auth()->login($user);
@@ -28,54 +28,51 @@ class AuditCompilers extends Command
 
     protected function testCrossProjectSharing()
     {
-        $this->comment("\nTesting Cross-Project Sharing with '5 geschiedenis.tex' (Viewer perspective)...");
+        $this->comment("\nTesting Rigorous Scenario: project 'aaa' with '5 geschiedenis.tex'...");
 
-        // 1. Setup two users
-        $owner = User::create([
-            'name' => 'Audit Owner',
-            'email' => 'owner_' . Str::random(5) . '@audit.com',
-            'password' => bcrypt('password')
-        ]);
-        $viewer = User::create([
-            'name' => 'Audit Viewer',
-            'email' => 'viewer_' . Str::random(5) . '@audit.com',
-            'password' => bcrypt('password')
-        ]);
+        // 1. Setup users
+        $owner = User::create(['name' => 'Owner', 'email' => 'owner_'.Str::random(5).'@test.com', 'password' => 'secret']);
+        $viewer = User::create(['name' => 'Viewer', 'email' => 'viewer_'.Str::random(5).'@test.com', 'password' => 'secret']);
 
-        // 2. Setup Project BBB (The dependency)
+        // 2. Setup Project BBB (dependency)
         $projectBBB = Project::create(['name' => 'bbb', 'user_id' => $owner->id]);
-        $projectBBB->files()->create([
-            'name' => 'napoleon.tex',
+        $projectBBB->files()->create(['name' => 'napoleon.tex', 'type' => 'file', 'extension' => 'tex', 'content' => 'Napoleon was hier.']);
+
+        // 3. Setup Project AAA (main)
+        $projectAAA = Project::create(['name' => 'aaa', 'user_id' => $owner->id]);
+        
+        // Nested file in AAA
+        $projectAAA->files()->create([
+            'name' => 'hoofdstukken/1_congres.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => 'Napoleon was hier in BBB.'
+            'content' => 'Content van het congres.'
         ]);
 
-        // 3. Setup Project AAA (The main project)
-        $projectAAA = Project::create(['name' => 'aaa', 'user_id' => $owner->id]);
+        // Main file in AAA
         $mainFile = $projectAAA->files()->create([
             'name' => '5 geschiedenis.tex',
             'type' => 'file',
             'extension' => 'tex',
-            'content' => "\\documentclass{article}\n\\begin{document}\nHoofdtest: \\include{../bbb/napoleon}\n\\end{document}"
+            'content' => "\\documentclass{article}\n\\begin{document}\nStart\n\\include{hoofdstukken/1_congres}\n\\include{../bbb/napoleon}\n\\end{document}"
         ]);
 
-        // 4. Share BOTH with Viewer
+        // 4. Share both with Viewer
         $projectAAA->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
         $projectBBB->sharedUsers()->attach($viewer->id, ['role' => 'viewer']);
 
         // 5. Compile as Viewer
-        $this->info("  -> Attempting compile as Viewer (ID: {$viewer->id})...");
+        $this->info("  -> Attempting rigorous compile as Viewer (ID: {$viewer->id})...");
         auth()->login($viewer);
         
         $action = new \App\Actions\CompileFileAction();
         try {
             $res = $action->execute($mainFile);
             if ($res['type'] === 'pdf') {
-                $this->info("  [OK] '5 geschiedenis.tex' compilation SUCCESSFUL (Cross-project FLAT).");
+                $this->info("  [OK] Rigorous compilation SUCCESSFUL for Viewer.");
             } else {
                 $this->error("  [FAIL] Compilation FAILED.");
-                $this->line("  Raw Output: " . $res['output']);
+                $this->line("  Raw Output: \n" . $res['output']);
             }
         } catch (\Exception $e) {
             $this->error("  [EXCEPTION] " . $e->getMessage());

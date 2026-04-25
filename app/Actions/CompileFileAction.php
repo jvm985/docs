@@ -11,72 +11,58 @@ class CompileFileAction
 {
     public function execute(File $file, array $options = []): array
     {
-        $currentUserId = auth()->id();
-        $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
-        
-        if (!is_dir($workspaceDir)) {
-            mkdir($workspaceDir, 0777, true);
-        }
+        // We maken voor ELKE compilatie een verse, unieke, tijdelijke map aan
+        // Dit garandeert dat we altijd mogen schrijven, ook als we 'Viewer' zijn.
+        $tempDir = storage_path('app/temp/run_' . Str::random(10));
+        mkdir($tempDir, 0777, true);
 
-        // 1. Flatten and synchronize the entire user workspace
-        $this->syncFlatWorkspace(auth()->user(), $workspaceDir);
-        
-        // 2. Prepare the active file (with path rewriting for TeX/Typst/R)
-        $compiledFile = $this->prepareActiveFileForCompilation($file, $workspaceDir);
-        
-        $compiler = CompilerFactory::make($file);
-        
-        // 3. Run the compiler in the ROOT directory
-        return $compiler->compile($compiledFile, $workspaceDir, $options);
+        try {
+            // 1. Bouw de volledige workspace na in deze tijdelijke map
+            $this->buildTemporaryWorkspace(auth()->user(), $tempDir);
+            
+            // 2. Het project-specifieke pad bepalen
+            $projectDir = $tempDir . '/' . $file->project->name;
+            
+            $compiler = CompilerFactory::make($file);
+            
+            // 3. Draai de compiler in de project-map van de tijdelijke omgeving
+            return $compiler->compile($file, $projectDir, $options);
+        } finally {
+            // 4. Schoon de tijdelijke rommel direct weer op
+            $this->recursiveRemoveDir($tempDir);
+        }
     }
 
-    private function syncFlatWorkspace($user, string $workspaceDir): void
+    private function buildTemporaryWorkspace($user, string $tempDir): void
     {
-        $user->refresh();
         $allProjects = $user->projects->merge($user->sharedProjects)->merge(Project::where('is_public', true)->get())->unique('id');
 
-        foreach ($allProjects as $project) {
+        foreach ($allAccessibleProjects = $allProjects as $project) {
+            $projectPath = $tempDir . '/' . $project->name;
+            mkdir($projectPath, 0777, true);
+
             foreach ($project->files as $projectFile) {
                 if ($projectFile->type === 'file') {
-                    // Flattened name: ProjectName___RelativePath.ext
-                    $flatName = $project->name . '___' . str_replace('/', '___', $projectFile->getPath());
-                    $fullPath = $workspaceDir . '/' . $flatName;
+                    $fullPath = $projectPath . '/' . $projectFile->getPath();
+                    
+                    if (!is_dir(dirname($fullPath))) {
+                        mkdir(dirname($fullPath), 0777, true);
+                    }
 
                     $content = $projectFile->binary_content ?? $projectFile->content;
-                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
-                        file_put_contents($fullPath, $content);
-                    }
+                    file_put_contents($fullPath, $content);
                 }
             }
         }
     }
 
-    private function prepareActiveFileForCompilation(File $file, string $workspaceDir): File
+    private function recursiveRemoveDir($dir): void
     {
-        $flatName = $file->project->name . '___' . str_replace('/', '___', $file->getPath());
-        $content = $file->content;
-
-        // Rewrite paths for LaTeX: \include{../project/file} -> \include{project___file}
-        if (in_array(strtolower($file->extension), ['tex', 'rmd', 'md', 'typ'])) {
-            // Match ../Project/Path patterns
-            $content = preg_replace_callback('/(\\\\include|\\\\input|#include|#import)\{?"?\.{2}\/([^\/\}"]+)\/([^\}"]+)"?\}?/', function($m) {
-                $project = $m[2];
-                $path = str_replace('/', '___', $m[3]);
-                // Remove extension for TeX includes if present
-                $path = preg_replace('/\.tex$/i', '', $path);
-                
-                if (str_starts_with($m[1], '#')) { // Typst
-                    return "{$m[1]} \"{$project}___{$path}.typ\"";
-                }
-                return "{$m[1]}{{$project}___{$path}}";
-            }, $content);
+        if (!is_dir($dir)) return;
+        $files = array_diff(scandir($dir), array('.', '..'));
+        foreach ($files as $file) {
+            (is_dir("$dir/$file")) ? $this->recursiveRemoveDir("$dir/$file") : unlink("$dir/$file");
         }
-
-        // Create a temporary File model for the compiler to use
-        $tempFile = $file->replicate();
-        $tempFile->name = $flatName;
-        $tempFile->content = $content;
-        
-        return $tempFile;
+        rmdir($dir);
     }
 }

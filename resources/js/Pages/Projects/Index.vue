@@ -65,7 +65,10 @@ const updateSharing = () => {
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Workspace</h2>
+                <div class="flex items-center gap-4">
+                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Workspace</h2>
+                    <span class="text-[10px] text-green-500 font-bold font-mono px-2 py-0.5 bg-green-50 rounded border border-green-200">🔥 FINAL-FIX-V5</span>
+                </div>
                 <PrimaryButton dusk="new-project-button" @click="creatingProject = true">New Project</PrimaryButton>
             </div>
         </template>

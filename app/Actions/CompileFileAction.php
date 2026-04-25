@@ -15,7 +15,10 @@ class CompileFileAction
         $workspaceDir = storage_path("app/workspaces/user_{$currentUserId}");
         
         if (!is_dir($workspaceDir)) {
-            mkdir($workspaceDir, 0777, true);
+            if (!mkdir($workspaceDir, 0777, true)) {
+                $error = error_get_last();
+                throw new \Exception("Failed to create workspace directory: {$workspaceDir}. Error: " . ($error['message'] ?? 'Unknown'));
+            }
         }
 
         // Zorg dat de map van de huidige gebruiker ALTIJD alle bestanden heeft waar hij toegang toe heeft

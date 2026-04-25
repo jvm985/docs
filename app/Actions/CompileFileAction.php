@@ -33,33 +33,40 @@ class CompileFileAction
         $myProjects = $user->projects;
         $sharedProjects = $user->sharedProjects;
         $publicProjects = Project::where('is_public', true)->get();
+private function syncUserWorkspace($user, string $workspaceDir): void
+{
+    // Haal alle projecten op waar deze gebruiker toegang toe heeft
+    $myProjects = $user->projects;
+    $sharedProjects = $user->sharedProjects;
+    $publicProjects = Project::where('is_public', true)->get();
 
-        $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
+    $allAccessibleProjects = $myProjects->merge($sharedProjects)->merge($publicProjects)->unique('id');
 
-        foreach ($allAccessibleProjects as $project) {
-            $projectPath = $workspaceDir . '/' . $project->name;
-            if (!is_dir($projectPath)) {
-                mkdir($projectPath, 0777, true);
-            }
+    foreach ($allAccessibleProjects as $project) {
+        $projectFolderName = $project->name;
+        $projectPath = $workspaceDir . '/' . $projectFolderName;
 
-            foreach ($project->files as $projectFile) {
-                if ($projectFile->type === 'file') {
-                    $relativePath = $projectFile->getPath();
-                    $fullPath = $projectPath . '/' . $relativePath;
+        if (!is_dir($projectPath)) {
+            mkdir($projectPath, 0777, true);
+        }
 
-                    $dir = dirname($fullPath);
-                    if (!is_dir($dir)) {
-                        mkdir($dir, 0777, true);
-                    }
+        foreach ($project->files as $projectFile) {
+            if ($projectFile->type === 'file') {
+                $relativePath = $projectFile->getPath();
+                $fullPath = $projectPath . '/' . $relativePath;
 
-                    $content = $projectFile->binary_content ?? $projectFile->content;
-                    
-                    // Alleen schrijven als het echt nodig is (sneller voor grote PNG's)
-                    if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
-                        file_put_contents($fullPath, $content);
-                    }
+                $dir = dirname($fullPath);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0777, true);
+                }
+
+                $content = $projectFile->binary_content ?? $projectFile->content;
+
+                if (!file_exists($fullPath) || file_get_contents($fullPath) !== $content) {
+                    file_put_contents($fullPath, $content);
                 }
             }
         }
     }
 }
+

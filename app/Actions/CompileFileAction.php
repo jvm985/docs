@@ -41,64 +41,61 @@ class CompileFileAction
 
     private function syncUserWorkspace(User $user, string $workspaceDir): void
     {
-        // 1. Haal alle projecten en hun namen vooraf op (Eager Loading / Lookup map)
-        $projects = Project::whereIn('id', function($query) use ($user) {
-            $query->select('id')->from('projects')->where('user_id', $user->id)
-                ->union(DB::table('project_user')->where('user_id', $user->id)->select('project_id'))
-                ->union(DB::table('projects')->where('is_public', true)->select('id'));
-        })->get(['id', 'name']);
+        // 1. Haal ALLE toegankelijke projecten op (geindexeerd op ID)
+        $projects = Project::where('user_id', $user->id)
+            ->orWhereIn('id', function($query) use ($user) {
+                $query->select('project_id')->from('project_user')->where('user_id', $user->id);
+            })
+            ->orWhere('is_public', true)
+            ->get(['id', 'name']);
 
         $projectNames = $projects->pluck('name', 'id')->toArray();
         $projectIds = $projects->pluck('id')->toArray();
 
         $lastSync = $user->last_synced_at;
 
-        // 2. Snelle check: is er iéts veranderd in de DB?
+        // 2. Check de allerlaatste wijziging in de DB (Nu razendsnel door index op updated_at)
         $lastDatabaseChangeStr = DB::table('files')
             ->whereIn('project_id', $projectIds)
             ->max('updated_at');
         
         if ($lastSync && $lastDatabaseChangeStr) {
             $lastDatabaseChange = new \Illuminate\Support\Carbon($lastDatabaseChangeStr);
+            // Als de DB niet nieuwer is dan onze laatste sync, stop onmiddellijk!
             if ($lastSync->greaterThanOrEqualTo($lastDatabaseChange)) {
                 return;
             }
         }
 
-        // 3. Haal alleen de gewijzigde bestanden op
+        // 3. Haal alleen de gewijzigde bestanden op sinds de laatste sync
         $query = File::whereIn('project_id', $projectIds);
         if ($lastSync) {
             $query->where('updated_at', '>', $lastSync);
         }
 
-        // Gebruik chunking of cursor, maar ZONDER relaties te laden
+        // 4. Update de 'dirty' files
         foreach ($query->cursor() as $projectFile) {
             $projectName = $projectNames[$projectFile->project_id] ?? null;
             if (!$projectName) continue;
 
             $projectPath = $workspaceDir . '/' . $projectName;
+            $fullPath = $projectPath . '/' . $projectFile->getPath();
             
             if ($projectFile->type === 'file') {
-                $fullPath = $projectPath . '/' . $projectFile->getPath();
-                
-                // Mappen maken indien nodig
-                $dir = dirname($fullPath);
-                if (!is_dir($dir)) {
-                    mkdir($dir, 0777, true);
+                if (!is_dir(dirname($fullPath))) {
+                    mkdir(dirname($fullPath), 0777, true);
                 }
-
                 $content = $projectFile->binary_content ?? $projectFile->content;
                 file_put_contents($fullPath, $content);
                 touch($fullPath, $projectFile->updated_at->timestamp);
             } elseif ($projectFile->type === 'folder') {
-                $folderPath = $projectPath . '/' . $projectFile->getPath();
-                if (!is_dir($folderPath)) {
-                    mkdir($folderPath, 0777, true);
+                if (!is_dir($fullPath)) {
+                    mkdir($fullPath, 0777, true);
                 }
             }
         }
 
-        // 4. Zorg dat alle project-root mappen bestaan (alleen bij eerste sync)
+        // 5. Zorg bij de allereerste sync dat alle project-root mappen bestaan
         if (!$lastSync) {
             foreach ($projectNames as $name) {
                 $path = $workspaceDir . '/' . $name;

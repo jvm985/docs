@@ -48,6 +48,8 @@ class LatexCompiler implements CompilerInterface
 
         // NIEUW: We tonen de PDF als hij bestaat, ook als latexmk een exit-code gaf (bijv door refs)
         if (file_exists($expectedPdfPath)) {
+            // Forceer een nieuwe timestamp op de bron-pdf zodat we zeker weten dat we kopiëren
+            touch($expectedPdfPath); 
             copy($expectedPdfPath, $outputDir . '/' . $outputFileName);
             return [
                 'type' => 'pdf',

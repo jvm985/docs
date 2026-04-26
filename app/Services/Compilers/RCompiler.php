@@ -9,37 +9,21 @@ class RCompiler implements CompilerInterface
 {
     public function compile(string $mainFilePath, string $workspaceDir): array
     {
-        $outputFileName = Str::random(20) . '.pdf';
-        $outputDir = storage_path('app/public/outputs');
-
-        if (!is_dir($outputDir)) {
-            mkdir($outputDir, 0777, true);
-        }
-
-        $outputPath = $outputDir . '/' . $outputFileName;
-        
-        // Render RMarkdown naar PDF
+        // Voer de R-code direct uit en vang de output op
         $process = Process::path($workspaceDir)
             ->run([
                 'Rscript',
-                '-e',
-                "rmarkdown::render('$mainFilePath', output_file='$outputPath')"
+                $mainFilePath
             ]);
 
-        if ($process->successful() && file_exists($outputPath)) {
-            return [
-                'type' => 'pdf',
-                'url' => '/storage/outputs/' . $outputFileName,
-                'output' => $process->output(),
-                'result' => true
-            ];
-        }
+        $output = $process->output() . "\n" . $process->errorOutput();
 
         return [
-            'type' => 'text',
-            'output' => $process->output() . "\n" . $process->errorOutput(),
+            'type' => 'r',
+            'output' => $output,
             'url' => null,
-            'result' => false
+            'result' => $output, // Show.vue verwacht het resultaat hier
+            'success' => $process->successful()
         ];
     }
 }

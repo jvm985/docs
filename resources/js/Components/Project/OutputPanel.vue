@@ -52,12 +52,6 @@ onMounted(() => {
                         </div>
                     </div>
                 </div>
-                
-                <!-- Fallback/System Log -->
-                <div class="mt-6 pt-4 border-t border-[#333]">
-                    <div class="text-gray-600 text-[10px] uppercase font-bold mb-2">System Output</div>
-                    <pre class="text-gray-500 text-[10px] whitespace-pre-wrap">{{ content || rOutput?.output || 'No output.' }}</pre>
-                </div>
             </div>
             
             <!-- Bottom Panel -->

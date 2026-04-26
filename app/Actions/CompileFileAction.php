@@ -36,58 +36,57 @@ class CompileFileAction
         }
 
         $compiler = CompilerFactory::make($file);
-        $result = $compiler->compile($fullPathOnDisk, $workspaceDir);
-
-        return $result;
+        return $compiler->compile($fullPathOnDisk, $workspaceDir);
     }
 
     private function syncUserWorkspace(User $user, string $workspaceDir): void
     {
-        $t1 = microtime(true);
-        
-        // 1. Haal project IDs op
-        $projectIds = $user->projects()->pluck('projects.id')
-            ->merge($user->sharedProjects()->pluck('projects.id'))
-            ->merge(Project::where('is_public', true)->pluck('projects.id'))
-            ->unique()
-            ->values()
-            ->toArray();
-        $t2 = microtime(true);
+        // 1. Haal alle projecten en hun namen vooraf op (Eager Loading / Lookup map)
+        $projects = Project::whereIn('id', function($query) use ($user) {
+            $query->select('id')->from('projects')->where('user_id', $user->id)
+                ->union(DB::table('project_user')->where('user_id', $user->id)->select('project_id'))
+                ->union(DB::table('projects')->where('is_public', true)->select('id'));
+        })->get(['id', 'name']);
+
+        $projectNames = $projects->pluck('name', 'id')->toArray();
+        $projectIds = $projects->pluck('id')->toArray();
 
         $lastSync = $user->last_synced_at;
 
-        // 2. Check de allerlaatste wijziging in de DB met rauwe SQL voor snelheid
+        // 2. Snelle check: is er iéts veranderd in de DB?
         $lastDatabaseChangeStr = DB::table('files')
             ->whereIn('project_id', $projectIds)
             ->max('updated_at');
         
-        $t3 = microtime(true);
-
         if ($lastSync && $lastDatabaseChangeStr) {
             $lastDatabaseChange = new \Illuminate\Support\Carbon($lastDatabaseChangeStr);
             if ($lastSync->greaterThanOrEqualTo($lastDatabaseChange)) {
-                \Log::info(sprintf("TurboSync [SKIP]: User %s, ID: %s. Logic time: %ss", $user->email, $user->id, round($t3-$t1, 4)));
                 return;
             }
         }
 
-        // 3. Haal de 'dirty' files op
+        // 3. Haal alleen de gewijzigde bestanden op
         $query = File::whereIn('project_id', $projectIds);
         if ($lastSync) {
             $query->where('updated_at', '>', $lastSync);
         }
 
-        $count = 0;
+        // Gebruik chunking of cursor, maar ZONDER relaties te laden
         foreach ($query->cursor() as $projectFile) {
-            $count++;
-            $project = $projectFile->project;
-            $projectPath = $workspaceDir . '/' . $project->name;
+            $projectName = $projectNames[$projectFile->project_id] ?? null;
+            if (!$projectName) continue;
+
+            $projectPath = $workspaceDir . '/' . $projectName;
             
             if ($projectFile->type === 'file') {
                 $fullPath = $projectPath . '/' . $projectFile->getPath();
-                if (!is_dir(dirname($fullPath))) {
-                    mkdir(dirname($fullPath), 0777, true);
+                
+                // Mappen maken indien nodig
+                $dir = dirname($fullPath);
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0777, true);
                 }
+
                 $content = $projectFile->binary_content ?? $projectFile->content;
                 file_put_contents($fullPath, $content);
                 touch($fullPath, $projectFile->updated_at->timestamp);
@@ -99,20 +98,16 @@ class CompileFileAction
             }
         }
 
-        // 4. Fallback voor nieuwe mappen
+        // 4. Zorg dat alle project-root mappen bestaan (alleen bij eerste sync)
         if (!$lastSync) {
-            foreach (Project::whereIn('id', $projectIds)->cursor() as $project) {
-                $projectPath = $workspaceDir . '/' . $project->name;
-                if (!is_dir($projectPath)) {
-                    mkdir($projectPath, 0777, true);
+            foreach ($projectNames as $name) {
+                $path = $workspaceDir . '/' . $name;
+                if (!is_dir($path)) {
+                    mkdir($path, 0777, true);
                 }
             }
         }
 
-        $t4 = microtime(true);
         $user->update(['last_synced_at' => now()]);
-        
-        \Log::info(sprintf("TurboSync [EXEC]: User %s, ID: %s. Files synced: %d. Total time: %ss (Logic: %ss, DB: %ss, Loop: %ss)", 
-            $user->email, $user->id, $count, round($t4-$t1, 4), round($t2-$t1, 4), round($t3-$t2, 4), round($t4-$t3, 4)));
     }
 }

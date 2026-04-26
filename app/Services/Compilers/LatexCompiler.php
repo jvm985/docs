@@ -38,6 +38,7 @@ class LatexCompiler implements CompilerInterface
                 '-xelatex',
                 '-interaction=nonstopmode',
                 '-shell-escape',
+                '-jobname=' . pathinfo($mainFilePath, PATHINFO_FILENAME),
                 basename($mainFilePath)
             ]);
         $log = $process->output() . "\n" . $process->errorOutput();

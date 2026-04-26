@@ -9,8 +9,8 @@ import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 // CRUCIAAL: Marker voor versie verificatie
-window.DOCS_APP_VERSION = 'VERSION-V105-HARD-RESET';
-console.log('Docs App loaded: VERSION-V105-HARD-RESET');
+window.DOCS_APP_VERSION = 'VERSION-V110-FIX';
+console.log('Docs App loaded: VERSION-V110-FIX');
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

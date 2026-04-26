@@ -67,7 +67,7 @@ const updateSharing = () => {
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-4">
                     <h2 class="font-semibold text-xl text-gray-800 leading-tight">My Workspace</h2>
-                    <span class="text-[10px] text-blue-500 font-bold font-mono px-2 py-0.5 bg-blue-50 rounded border border-blue-200">💎 VERSION-V105-HARD-RESET</span>
+                    <span class="text-[10px] text-blue-500 font-bold font-mono px-2 py-0.5 bg-blue-50 rounded border border-blue-200">💎 VERSION-V110-FIX</span>
                 </div>
                 <PrimaryButton dusk="new-project-button" @click="creatingProject = true">New Project</PrimaryButton>
             </div>

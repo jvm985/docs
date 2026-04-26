@@ -83,7 +83,7 @@ RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static
 COPY resources/fonts/*.ttf /usr/share/fonts/truetype/Quicksand/static/
 RUN fc-cache -f -v
 
-RUN mkdir -p /var/www/storage/app/workspaces /var/www/public_shared/build && \
+RUN mkdir -p /var/www/storage/app/workspaces /var/www/storage/app/public/outputs /var/www/public_shared/build && \
     chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache /var/www/public /var/www/texmf /var/www/public_shared
 
 COPY docker-entrypoint.sh /usr/local/bin/

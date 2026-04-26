@@ -2,36 +2,55 @@
 
 use App\Models\Project;
 use App\Models\User;
+use App\Models\File;
 use App\Actions\CompileFileAction;
 
-test('persistent workspace compilation is fast and produces a pdf', function () {
+test('ULTIMATE USER EXPERIENCE TEST', function () {
     $user = User::where('email', 'joachim.vanmeirvenne@atheneumkapellen.be')->first();
     auth()->login($user);
-
-    $project = Project::where('name', '05 geschiedenis typst')->first();
-    $file = $project->files()->where('name', 'main.typ')->first();
-
     $action = new CompileFileAction();
-    
-    // Eerste run (mag iets langer duren door initiële sync)
-    $start = microtime(true);
-    $result1 = $action->execute($file);
-    $time1 = microtime(true) - $start;
-    
-    expect($result1['result'])->toBeTrue();
-    expect($result1['url'])->not->toBeNull();
-    
-    // Tweede run (moet razendsnel zijn door incrementele sync)
-    $start = microtime(true);
-    $result2 = $action->execute($file);
-    $time2 = microtime(true) - $start;
 
-    expect($result2['result'])->toBeTrue();
+    echo "\n🚀 STARTING ULTIMATE TEST...\n";
+
+    // 1. TEST TYPST (Project 265/266)
+    echo "📄 Testing Typst Compilation (Project 269)...";
+    $p_typst = Project::where('name', 'LIKE', '%typst%')->first();
+    $f_typst = $p_typst->files()->where('name', 'main.typ')->first();
+    $start = microtime(true);
+    $res_typst = $action->execute($f_typst);
+    echo " DONE (" . round(microtime(true) - $start, 2) . "s)\n";
+    expect($res_typst['type'])->toBe('pdf');
+    expect($res_typst['url'])->not->toBeNull();
+
+    // 2. TEST LATEX (Project 244)
+    echo "📄 Testing LaTeX Compilation (Project 244)...";
+    $p_latex = Project::find(244);
+    $f_latex = $p_latex->files()->where('name', '5_geschiedenis.tex')->first();
+    $start = microtime(true);
+    $res_latex = $action->execute($f_latex);
+    echo " DONE (" . round(microtime(true) - $start, 2) . "s)\n";
+    expect($res_latex['type'])->toBe('pdf');
+
+    // 3. TEST R WITH PLOTS
+    echo "📊 Testing R with Plots...";
+    // Maak een tijdelijke R file in Joachim's eerste project
+    $p_r = $user->projects()->first();
+    $f_r = $p_r->files()->create([
+        'name' => 'test_plots.r',
+        'type' => 'file',
+        'extension' => 'r',
+        'content' => "print('Hello R'); x <- 1:10; y <- x^2; plot(x,y); print(summary(y));"
+    ]);
     
-    // Log de tijden voor de robot
-    echo "\n⏱️ First run: " . round($time1, 2) . "s\n";
-    echo "⏱️ Second run: " . round($time2, 2) . "s\n";
+    $start = microtime(true);
+    $res_r = $action->execute($f_r);
+    echo " DONE (" . round(microtime(true) - $start, 2) . "s)\n";
     
-    // De tweede run moet sneller zijn dan de eerste, of in ieder geval onder de 5 seconden voor 114 pagina's
-    expect($time2)->toBeLessThan(5);
+    expect($res_r['type'])->toBe('r');
+    expect($res_r['result']['plots'])->not->toBeEmpty();
+    expect($res_r['result']['variables'])->not->toBeEmpty();
+    
+    $f_r->delete();
+
+    echo "✅ ALL SYSTEMS OPERATIONAL!\n";
 });

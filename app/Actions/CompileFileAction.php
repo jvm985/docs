@@ -25,7 +25,6 @@ class CompileFileAction
             mkdir($workspaceDir, 0777, true);
         }
 
-        // Turbo Sync: Alleen gewijzigde bestanden ophalen
         $this->syncUserWorkspace($user, $workspaceDir);
 
         $project = $file->project;
@@ -44,26 +43,43 @@ class CompileFileAction
 
     private function syncUserWorkspace(User $user, string $workspaceDir): void
     {
+        $t1 = microtime(true);
+        
         // 1. Haal project IDs op
         $projectIds = $user->projects()->pluck('projects.id')
             ->merge($user->sharedProjects()->pluck('projects.id'))
             ->merge(Project::where('is_public', true)->pluck('projects.id'))
             ->unique()
-            ->values();
+            ->values()
+            ->toArray();
+        $t2 = microtime(true);
 
-        // 2. Definieer de start-tijd voor de sync (of 1970 als we nog nooit gesynct hebben)
         $lastSync = $user->last_synced_at;
 
-        // 3. Haal ALLEEN de bestanden op die veranderd zijn sinds de laatste sync
-        // OF haal alles op als de map nog niet bestaat (of leeg is)
-        $query = File::whereIn('project_id', $projectIds);
+        // 2. Check de allerlaatste wijziging in de DB met rauwe SQL voor snelheid
+        $lastDatabaseChangeStr = DB::table('files')
+            ->whereIn('project_id', $projectIds)
+            ->max('updated_at');
         
+        $t3 = microtime(true);
+
+        if ($lastSync && $lastDatabaseChangeStr) {
+            $lastDatabaseChange = new \Illuminate\Support\Carbon($lastDatabaseChangeStr);
+            if ($lastSync->greaterThanOrEqualTo($lastDatabaseChange)) {
+                \Log::info(sprintf("TurboSync [SKIP]: User %s, ID: %s. Logic time: %ss", $user->email, $user->id, round($t3-$t1, 4)));
+                return;
+            }
+        }
+
+        // 3. Haal de 'dirty' files op
+        $query = File::whereIn('project_id', $projectIds);
         if ($lastSync) {
             $query->where('updated_at', '>', $lastSync);
         }
 
-        // 4. Update alleen de 'dirty' files
+        $count = 0;
         foreach ($query->cursor() as $projectFile) {
+            $count++;
             $project = $projectFile->project;
             $projectPath = $workspaceDir . '/' . $project->name;
             
@@ -83,7 +99,7 @@ class CompileFileAction
             }
         }
 
-        // 5. Als we nog nooit gesynct hebben, moeten we ook zorgen dat lege mappen van projecten bestaan
+        // 4. Fallback voor nieuwe mappen
         if (!$lastSync) {
             foreach (Project::whereIn('id', $projectIds)->cursor() as $project) {
                 $projectPath = $workspaceDir . '/' . $project->name;
@@ -93,7 +109,10 @@ class CompileFileAction
             }
         }
 
-        // 6. Update de sync timestamp naar NU
+        $t4 = microtime(true);
         $user->update(['last_synced_at' => now()]);
+        
+        \Log::info(sprintf("TurboSync [EXEC]: User %s, ID: %s. Files synced: %d. Total time: %ss (Logic: %ss, DB: %ss, Loop: %ss)", 
+            $user->email, $user->id, $count, round($t4-$t1, 4), round($t2-$t1, 4), round($t3-$t2, 4), round($t4-$t3, 4)));
     }
 }

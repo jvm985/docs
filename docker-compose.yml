@@ -24,6 +24,7 @@ services:
       - SESSION_SECURE_COOKIE=true
       - SESSION_DOMAIN=irishof.cloud
       - SANCTUM_STATEFUL_DOMAINS=docs.irishof.cloud
+      - XDG_CACHE_HOME=/var/www/storage/framework/cache/typst
     volumes:
       - docs_storage:/var/www/storage
       - docs_public:/var/www/public_shared

@@ -14,11 +14,13 @@ class HandleInertiaRequests extends Middleware
      */
     protected $rootView = 'app';
 
+    /**
+     * Determine the current asset version.
+     */
     public function version(Request $request): ?string
     {
-        // Gebruik de manifest file hash uit de V8 build map
-        $manifestPath = public_path('build_v8/manifest.json');
-        return is_file($manifestPath) ? md5_file($manifestPath) : parent::version($request);
+        // Laravel handles this automatically based on the manifest file
+        return parent::version($request);
     }
 
     /**

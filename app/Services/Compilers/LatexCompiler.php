@@ -31,16 +31,15 @@ class LatexCompiler implements CompilerInterface
                 'TEXMFCONFIG' => $workspaceDir . '/texmf',
                 'TEXMFVAR' => $workspaceDir . '/texmf',
                 'OPENOUT_ANY' => 'a',
-                'OPENIN_ANY' => 'a'
+                'OPENIN_ANY' => 'a',
+                'TEXINPUTS' => ".:$workspaceDir:"
             ])
             ->run([
                 'latexmk',
                 '-xelatex',
                 '-interaction=nonstopmode',
                 '-shell-escape',
-                '-cnf-line=openout_any=a',
-                '-cnf-line=openin_any=a',
-                '-output-directory=' . $projectDir, // Zet output in de project map
+                '-output-directory=' . $projectDir,
                 $mainFilePath
             ]);
 

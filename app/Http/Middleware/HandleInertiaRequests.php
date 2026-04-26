@@ -19,8 +19,9 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        // Laravel handles this automatically based on the manifest file
-        return parent::version($request);
+        return is_file($path = public_path('build/manifest.json'))
+            ? md5_file($path)
+            : parent::version($request);
     }
 
     /**

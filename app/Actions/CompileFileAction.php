@@ -50,14 +50,17 @@ class CompileFileAction
         
         $t_projects = microtime(true);
 
-        // 2. Check for ANY change in accessible files
+        // 2. Check for ANY change in accessible files or project names
+        $accessibleProjects = Project::whereIn('id', $projectIds)->get(['id', 'name']);
+        $projectNames = $accessibleProjects->pluck('name', 'id')->toArray();
+
         $lastFileChange = DB::table('files')
             ->whereIn('project_id', $projectIds)
             ->max('updated_at');
         
         $t_max = microtime(true);
         
-        $checksum = md5(implode(',', $projectIds) . $lastFileChange);
+        $checksum = md5(implode(',', $projectIds) . implode('|', $projectNames) . $lastFileChange);
 
         if ($user->projects_checksum === $checksum) {
             $t_end = microtime(true);
@@ -67,9 +70,6 @@ class CompileFileAction
         }
 
         // 3. Incremental sync logic...
-        $accessibleProjects = Project::whereIn('id', $projectIds)->get(['id', 'name']);
-        $projectNames = $accessibleProjects->pluck('name', 'id')->toArray();
-
         $query = File::whereIn('project_id', $projectIds);
         if ($user->last_synced_at) {
             $query->where('updated_at', '>', $user->last_synced_at);

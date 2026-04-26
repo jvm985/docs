@@ -46,13 +46,14 @@ class LatexCompiler implements CompilerInterface
         // Zoek de gegenereerde PDF (heeft dezelfde naam als de main file)
         $expectedPdfPath = str_replace('.tex', '.pdf', $mainFilePath);
 
-        if ($process->successful() && file_exists($expectedPdfPath)) {
+        // NIEUW: We tonen de PDF als hij bestaat, ook als latexmk een exit-code gaf (bijv door refs)
+        if (file_exists($expectedPdfPath)) {
             copy($expectedPdfPath, $outputDir . '/' . $outputFileName);
             return [
                 'type' => 'pdf',
                 'url' => '/storage/outputs/' . $outputFileName,
                 'output' => $log,
-                'result' => true
+                'result' => $process->successful()
             ];
         }
 

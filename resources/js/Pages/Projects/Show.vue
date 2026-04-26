@@ -17,6 +17,8 @@ const outputContent = ref('');
 const lastLog = ref('');
 const rOutput = ref(null);
 const isCompiling = ref(false);
+const isShowingLog = ref(false);
+const lastResult = ref({ type: 'pdf', content: '', rOutput: null });
 const lastCompileTime = ref(0);
 let abortController = null;
 
@@ -92,24 +94,28 @@ const compileFile = async (compiler = null, code = null) => {
         
         lastLog.value = response.data.output || 'No log output returned from server.';
         
-        if (response.data.type === 'pdf') {
-            outputType.value = 'pdf';
-            outputContent.value = response.data.url;
-        } else if (response.data.type === 'r') {
-            outputType.value = 'r';
-            rOutput.value = response.data.result;
-            outputContent.value = response.data.output; 
-        } else {
-            outputType.value = 'text';
-            outputContent.value = response.data.output;
+        // Sla het echte resultaat op
+        lastResult.value = {
+            type: response.data.type,
+            content: response.data.type === 'pdf' ? response.data.url : response.data.output,
+            rOutput: response.data.result
+        };
+
+        // Alleen de view updaten als we niet in de log-modus zitten
+        if (!isShowingLog.value) {
+            outputType.value = lastResult.value.type;
+            outputContent.value = lastResult.value.content;
+            rOutput.value = lastResult.value.rOutput;
         }
         
         lastCompileTime.value = Date.now();
     } catch (error) {
         if (!axios.isCancel(error)) {
-            outputType.value = 'text';
-            outputContent.value = 'Compilation failed';
             lastLog.value = error.response?.data?.output || error.message;
+            if (!isShowingLog.value) {
+                outputType.value = 'text';
+                outputContent.value = 'Compilation failed';
+            }
         }
     } finally {
         isCompiling.value = false;
@@ -117,9 +123,17 @@ const compileFile = async (compiler = null, code = null) => {
     }
 };
 
-const showLog = () => {
-    outputType.value = 'text';
-    outputContent.value = lastLog.value;
+const toggleLog = () => {
+    isShowingLog.value = !isShowingLog.value;
+    
+    if (isShowingLog.value) {
+        outputType.value = 'text';
+        outputContent.value = lastLog.value;
+    } else {
+        outputType.value = lastResult.value.type;
+        outputContent.value = lastResult.value.content;
+        rOutput.value = lastResult.value.rOutput;
+    }
 };
 </script>
 
@@ -155,10 +169,11 @@ const showLog = () => {
                     v-if="currentFile" 
                     :file="currentFile" 
                     :isCompiling="isCompiling"
+                    :isShowingLog="isShowingLog"
                     @save="saveFile" 
                     @compile="compileFile"
                     @stop-compilation="stopCompilation"
-                    @show-log="showLog"
+                    @show-log="toggleLog"
                 />
                 <div v-else class="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50">
                     <span class="text-4xl mb-2">📄</span>

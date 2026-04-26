@@ -1,7 +1,3 @@
-// @ts-ignore
-window.PEST_MARKER = "PEST-V100-REAL-FORCE";
-console.log("PEST-V100-REAL-FORCE");
-
 import '../css/app.css';
 import './bootstrap';
 
@@ -11,6 +7,10 @@ import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+// CRUCIAAL: Marker voor versie verificatie
+window.DOCS_APP_VERSION = 'VERSION-V105-HARD-RESET';
+console.log('Docs App loaded: VERSION-V105-HARD-RESET');
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,

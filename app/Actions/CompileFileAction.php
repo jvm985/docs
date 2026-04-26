@@ -41,39 +41,42 @@ class CompileFileAction
 
     private function syncUserWorkspace(User $user, string $workspaceDir): void
     {
-        // 1. Haal ALLE toegankelijke projecten op (geindexeerd op ID)
-        $projects = Project::where('user_id', $user->id)
+        // 1. Haal ALLE toegankelijke projecten op (Met ID en UpdatedAt voor de checksum)
+        $accessibleProjects = Project::where('user_id', $user->id)
             ->orWhereIn('id', function($query) use ($user) {
                 $query->select('project_id')->from('project_user')->where('user_id', $user->id);
             })
             ->orWhere('is_public', true)
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'updated_at']);
 
-        $projectNames = $projects->pluck('name', 'id')->toArray();
-        $projectIds = $projects->pluck('id')->toArray();
+        // 2. Bereken een checksum van de huidige staat van ALLE projecten
+        // Dit vangt toevegingen, verwijderingen en metadata wijzigingen op.
+        $checksumStr = $accessibleProjects->map(fn($p) => "{$p->id}-{$p->updated_at->timestamp}")->implode('|');
+        $currentChecksum = md5($checksumStr);
 
-        $lastSync = $user->last_synced_at;
-
-        // 2. Check de allerlaatste wijziging in de DB (Nu razendsnel door index op updated_at)
-        $lastDatabaseChangeStr = DB::table('files')
+        // 3. Als de checksum gelijk is, is er metadata-technisch niets veranderd.
+        // We moeten echter OOK checken of er bestanden BINNEN de projecten zijn gewijzigd.
+        $projectIds = $accessibleProjects->pluck('id')->toArray();
+        $lastFileChange = DB::table('files')
             ->whereIn('project_id', $projectIds)
             ->max('updated_at');
         
-        if ($lastSync && $lastDatabaseChangeStr) {
-            $lastDatabaseChange = new \Illuminate\Support\Carbon($lastDatabaseChangeStr);
-            // Als de DB niet nieuwer is dan onze laatste sync, stop onmiddellijk!
-            if ($lastSync->greaterThanOrEqualTo($lastDatabaseChange)) {
-                return;
-            }
+        $fullChecksum = md5($currentChecksum . $lastFileChange);
+
+        // 4. Snelle exit als de totale staat van de DB overeenkomt met de lokale workspace
+        if ($user->projects_checksum === $fullChecksum) {
+            return;
         }
 
-        // 3. Haal alleen de gewijzigde bestanden op sinds de laatste sync
+        // 5. Er is iets veranderd -> Voer de incrementele sync uit
+        $projectNames = $accessibleProjects->pluck('name', 'id')->toArray();
+        
+        // Haal alleen files op die nieuwer zijn dan de vorige sync (voor extra snelheid)
         $query = File::whereIn('project_id', $projectIds);
-        if ($lastSync) {
-            $query->where('updated_at', '>', $lastSync);
+        if ($user->last_synced_at) {
+            $query->where('updated_at', '>', $user->last_synced_at);
         }
 
-        // 4. Update de 'dirty' files
         foreach ($query->cursor() as $projectFile) {
             $projectName = $projectNames[$projectFile->project_id] ?? null;
             if (!$projectName) continue;
@@ -95,16 +98,18 @@ class CompileFileAction
             }
         }
 
-        // 5. Zorg bij de allereerste sync dat alle project-root mappen bestaan
-        if (!$lastSync) {
-            foreach ($projectNames as $name) {
-                $path = $workspaceDir . '/' . $name;
-                if (!is_dir($path)) {
-                    mkdir($path, 0777, true);
-                }
+        // 6. Zorg bij nieuwe projecten dat de root mappen bestaan
+        foreach ($projectNames as $name) {
+            $path = $workspaceDir . '/' . $name;
+            if (!is_dir($path)) {
+                mkdir($path, 0777, true);
             }
         }
 
-        $user->update(['last_synced_at' => now()]);
+        // 7. Update de staat van de gebruiker
+        $user->update([
+            'projects_checksum' => $fullChecksum,
+            'last_synced_at' => now()
+        ]);
     }
 }

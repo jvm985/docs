@@ -18,18 +18,17 @@ class LatexCompiler implements CompilerInterface
             mkdir($outputDir, 0777, true);
         }
 
-        // 1. Zorg voor een lokale texmf.cnf voor veiligheid in de workspace
-        $this->ensureTexmfConfig($workspaceDir);
+        // 1. Zorg voor een lokale texmf.cnf voor veiligheid in de project map
+        $this->ensureTexmfConfig($projectDir);
 
         // 2. Symlink fonts lokaal voor XeLaTeX ontdekking
-        $this->linkFonts($workspaceDir);
+        $this->linkFonts($projectDir);
 
         // 3. Voer de compilatie uit
-        // We draaien latexmk die slim genoeg is om meerdere keren te draaien indien nodig
-        $process = Process::path($workspaceDir)
+        $process = Process::path($projectDir)
             ->env([
-                'TEXMFCONFIG' => $workspaceDir . '/texmf',
-                'TEXMFVAR' => $workspaceDir . '/texmf',
+                'TEXMFCONFIG' => $projectDir . '/texmf',
+                'TEXMFVAR' => $projectDir . '/texmf',
                 'OPENOUT_ANY' => 'a',
                 'OPENIN_ANY' => 'a',
                 'TEXINPUTS' => ".:$workspaceDir:"
@@ -39,10 +38,8 @@ class LatexCompiler implements CompilerInterface
                 '-xelatex',
                 '-interaction=nonstopmode',
                 '-shell-escape',
-                '-output-directory=' . $projectDir,
-                $mainFilePath
+                basename($mainFilePath)
             ]);
-
         $log = $process->output() . "\n" . $process->errorOutput();
         
         // Zoek de gegenereerde PDF (heeft dezelfde naam als de main file)

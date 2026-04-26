@@ -2,17 +2,14 @@
 
 namespace App\Services\Compilers;
 
-use App\Models\File;
-
 interface CompilerInterface
 {
     /**
-     * Compile the given file.
+     * Compile a file within a workspace.
      * 
-     * @param File $file
-     * @param string $tempDir
-     * @param array $options
-     * @return array {type: string, output: string, url: ?string, result: ?array}
+     * @param string $mainFilePath De volledige wegligging van de hoofdbestand op schijf.
+     * @param string $workspaceDir De root van de user-workspace voor includes.
+     * @return array [type => 'pdf|text', url => '...', output => '...', result => bool]
      */
-    public function compile(File $file, string $tempDir, array $options = []): array;
+    public function compile(string $mainFilePath, string $workspaceDir): array;
 }

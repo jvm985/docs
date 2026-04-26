@@ -2,56 +2,45 @@
 
 namespace App\Services\Compilers;
 
-use App\Models\File;
-use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Process;
 
 class PandocCompiler implements CompilerInterface
 {
-    public function compile(File $file, string $tempDir, array $options = []): array
+    public function compile(string $mainFilePath, string $workspaceDir): array
     {
-        $projectDir = $tempDir . '/' . $file->project->name;
-        $relativePath = $file->getPath();
-        $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
-        
-        $outputDir = $tempDir . '/_output_' . Str::random(5);
-        mkdir($outputDir, 0777, true);
-        
-        $output = "";
-        $url = null;
-        $type = 'text';
+        $outputFileName = Str::random(20) . '.pdf';
+        $outputDir = storage_path('app/public/outputs');
 
-        if (strtolower($file->extension) === 'rmd') {
-            $renderCmd = "rmarkdown::render('{$relativePath}', output_dir='{$outputDir}', output_format='pdf_document', output_options=list(pdf_engine='/usr/bin/pdflatex', pandoc_args=c('-V', 'pagemode=UseNone')))";
-            $process = Process::path($projectDir)
-                ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
-                ->run("/usr/bin/Rscript -e " . escapeshellarg($renderCmd));
-        } else {
-            $process = Process::path($projectDir)
-                ->env(['HOME' => '/tmp', 'PATH' => '/usr/bin:/bin:/usr/local/bin'])
-                ->run("/usr/bin/pandoc " . escapeshellarg($relativePath) . " --pdf-engine=/usr/bin/pdflatex -V pagemode=UseNone -o " . escapeshellarg($outputDir . '/' . $pdfName));
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0777, true);
         }
 
-        $output = $process->output() ?: $process->errorOutput();
-        
-        $fullPdfPath = $outputDir . '/' . $pdfName;
+        $outputPath = $outputDir . '/' . $outputFileName;
 
-        if (file_exists($fullPdfPath)) {
-            $fileData = file_get_contents($fullPdfPath);
-            if (str_starts_with($fileData, "%PDF-")) {
-                $type = 'pdf';
-                $publicPath = 'outputs/' . Str::random(20) . '.pdf';
-                Storage::disk('public')->put($publicPath, $fileData);
-                $url = Storage::url($publicPath);
-            }
+        $process = Process::path($workspaceDir)
+            ->run([
+                'pandoc',
+                $mainFilePath,
+                '-o',
+                $outputPath,
+                '--pdf-engine=xelatex'
+            ]);
+
+        if ($process->successful() && file_exists($outputPath)) {
+            return [
+                'type' => 'pdf',
+                'url' => '/storage/outputs/' . $outputFileName,
+                'output' => $process->output(),
+                'result' => true
+            ];
         }
 
         return [
-            'type' => $type,
-            'output' => $output,
-            'url' => $url,
-            'result' => null
+            'type' => 'text',
+            'output' => $process->output() . "\n" . $process->errorOutput(),
+            'url' => null,
+            'result' => false
         ];
     }
 }

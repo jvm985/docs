@@ -3,67 +3,87 @@
 namespace App\Services\Compilers;
 
 use App\Models\File;
-use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Process;
 
 class LatexCompiler implements CompilerInterface
 {
-    public function compile(File $file, string $tempDir, array $options = []): array
+    public function compile(string $mainFilePath, string $workspaceDir): array
     {
-        $compiler = $file->preferred_compiler ?: ($options['compiler'] ?? 'pdflatex');
-        $cmd = "/usr/bin/{$compiler}";
-        
-        $projectDir = $tempDir . '/' . $file->project->name;
-        
-        // SYMLINK FONTS: Zorg dat de fonts ook lokaal in de projectmap staan
-        // Hierdoor vindt XeLaTeX ze ALTIJD, ongeacht de naamstelling in de config
-        $fontSource = '/usr/share/fonts/truetype/Quicksand/static';
-        if (is_dir($fontSource)) {
-            $localFontDir = $projectDir . '/fonts';
-            if (!is_dir($localFontDir)) mkdir($localFontDir, 0777, true);
-            foreach (glob("$fontSource/*.ttf") as $fontFile) {
-                @symlink($fontFile, $localFontDir . '/' . basename($fontFile));
-                // Maak ook een link direct in de root voor extra compatibiliteit
-                @symlink($fontFile, $projectDir . '/' . basename($fontFile));
-            }
+        $projectDir = dirname($mainFilePath);
+        $outputFileName = Str::random(20) . '.pdf';
+        $outputDir = storage_path('app/public/outputs');
+
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0777, true);
         }
 
-        // Forceer permissies via LOKAAL configuratiebestand in de projectmap
-        file_put_contents($projectDir . '/texmf.cnf', "openout_any = a\nopenin_any = a\n");
-        
-        $process = Process::path($projectDir)
+        // 1. Zorg voor een lokale texmf.cnf voor veiligheid in de workspace
+        $this->ensureTexmfConfig($workspaceDir);
+
+        // 2. Symlink fonts lokaal voor XeLaTeX ontdekking
+        $this->linkFonts($workspaceDir);
+
+        // 3. Voer de compilatie uit
+        // We draaien latexmk die slim genoeg is om meerdere keren te draaien indien nodig
+        $process = Process::path($workspaceDir)
             ->env([
-                'HOME' => '/tmp', 
-                'PATH' => '/usr/bin:/bin:/usr/local/bin',
-                'openout_any' => 'a',
-                'openin_any' => 'a'
+                'TEXMFCONFIG' => $workspaceDir . '/texmf',
+                'TEXMFVAR' => $workspaceDir . '/texmf',
+                'OPENOUT_ANY' => 'a',
+                'OPENIN_ANY' => 'a'
             ])
-            ->run("{$cmd} -interaction=nonstopmode -cnf-line=\"openout_any=a\" -cnf-line=\"openin_any=a\" " . escapeshellarg($file->name));
-        
-        $output = $process->output() ?: $process->errorOutput();
-        
-        $pdfName = pathinfo($file->name, PATHINFO_FILENAME) . '.pdf';
-        $fullPdfPath = $projectDir . '/' . $pdfName;
+            ->run([
+                'latexmk',
+                '-xelatex',
+                '-interaction=nonstopmode',
+                '-shell-escape',
+                '-cnf-line=openout_any=a',
+                '-cnf-line=openin_any=a',
+                '-output-directory=' . $projectDir, // Zet output in de project map
+                $mainFilePath
+            ]);
 
-        $url = null;
-        $type = 'text';
+        $log = $process->output() . "\n" . $process->errorOutput();
+        
+        // Zoek de gegenereerde PDF (heeft dezelfde naam als de main file)
+        $expectedPdfPath = str_replace('.tex', '.pdf', $mainFilePath);
 
-        if (file_exists($fullPdfPath)) {
-            $fileData = file_get_contents($fullPdfPath);
-            if (str_starts_with($fileData, "%PDF-")) {
-                $type = 'pdf';
-                $publicPath = 'outputs/' . Str::random(20) . '.pdf';
-                Storage::disk('public')->put($publicPath, $fileData);
-                $url = Storage::url($publicPath);
-            }
+        if ($process->successful() && file_exists($expectedPdfPath)) {
+            copy($expectedPdfPath, $outputDir . '/' . $outputFileName);
+            return [
+                'type' => 'pdf',
+                'url' => '/storage/outputs/' . $outputFileName,
+                'output' => $log,
+                'result' => true
+            ];
         }
 
         return [
-            'type' => $type,
-            'output' => $output,
-            'url' => $url,
-            'result' => null
+            'type' => 'text',
+            'output' => $log,
+            'url' => null,
+            'result' => false
         ];
+    }
+
+    private function ensureTexmfConfig(string $workspaceDir): void
+    {
+        $texmfDir = $workspaceDir . '/texmf';
+        if (!is_dir($texmfDir)) {
+            mkdir($texmfDir, 0777, true);
+        }
+        $cnfFile = $texmfDir . '/texmf.cnf';
+        if (!file_exists($cnfFile)) {
+            file_put_contents($cnfFile, "openout_any = a\nopenin_any = a\n");
+        }
+    }
+
+    private function linkFonts(string $workspaceDir): void
+    {
+        // Alleen linken als het nog niet bestaat
+        if (!is_dir($workspaceDir . '/fonts')) {
+             @symlink('/usr/share/fonts/truetype/Quicksand/static', $workspaceDir . '/fonts');
+        }
     }
 }

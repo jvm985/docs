@@ -2,42 +2,46 @@
 
 namespace App\Services\Compilers;
 
-use App\Models\File;
-use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Process;
 
 class TypstCompiler implements CompilerInterface
 {
-    public function compile(File $file, string $tempDir, array $options = []): array
+    public function compile(string $mainFilePath, string $workspaceDir): array
     {
-        $projectDir = $tempDir . '/' . $file->project->name;
-        $relativePath = $file->getPath();
-        $pdfName = pathinfo($relativePath, PATHINFO_FILENAME) . '.pdf';
-        
-        $outputDir = $tempDir . '/_output_' . Str::random(5);
-        mkdir($outputDir, 0777, true);
-        
-        $process = Process::path($projectDir)
-            ->env(['HOME' => '/tmp'])
-            ->run("/usr/local/bin/typst compile " . escapeshellarg($relativePath) . " " . escapeshellarg($outputDir . '/' . $pdfName));
-        
-        $output = $process->output() ?: $process->errorOutput();
-        $url = null;
-        $type = 'text';
+        $outputFileName = Str::random(20) . '.pdf';
+        $outputDir = storage_path('app/public/outputs');
 
-        if (file_exists($outputDir . '/' . $pdfName)) {
-            $type = 'pdf';
-            $publicPath = 'outputs/' . Str::random(20) . '.pdf';
-            Storage::disk('public')->put($publicPath, file_get_contents($outputDir . '/' . $pdfName));
-            $url = Storage::url($publicPath);
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0777, true);
+        }
+
+        $outputPath = $outputDir . '/' . $outputFileName;
+
+        // Typst is van zichzelf al heel snel, maar we draaien hem nu in de persistente map
+        // zodat alle lokale fonts en includes direct beschikbaar zijn.
+        $process = Process::path($workspaceDir)
+            ->run([
+                'typst',
+                'compile',
+                $mainFilePath,
+                $outputPath
+            ]);
+
+        if ($process->successful() && file_exists($outputPath)) {
+            return [
+                'type' => 'pdf',
+                'url' => '/storage/outputs/' . $outputFileName,
+                'output' => $process->output(),
+                'result' => true
+            ];
         }
 
         return [
-            'type' => $type,
-            'output' => $output,
-            'url' => $url,
-            'result' => null
+            'type' => 'text',
+            'output' => $process->output() . "\n" . $process->errorOutput(),
+            'url' => null,
+            'result' => false
         ];
     }
 }

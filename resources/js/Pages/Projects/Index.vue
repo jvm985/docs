@@ -184,18 +184,18 @@ onUnmounted(() => document.removeEventListener('click', closeContextMenu));
             <!-- Main Content -->
             <main class="flex-grow flex flex-col overflow-hidden">
                 <!-- Search Bar Area -->
-                <div class="h-16 flex items-center px-6 gap-4 bg-white border-b border-gray-200">
-                    <div class="flex-grow max-w-2xl bg-gray-100 rounded-lg flex items-center px-4 py-2 focus-within:bg-white focus-within:shadow-md border border-transparent focus-within:border-blue-200 transition-all">
-                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <div class="h-12 flex items-center px-6 gap-4 bg-white border-b border-gray-200 shrink-0">
+                    <div class="w-[720px] bg-[#f1f3f4] rounded-lg flex items-center px-4 py-1.5 focus-within:bg-white focus-within:shadow-md border border-transparent focus-within:border-blue-200 transition-all">
+                        <svg class="w-5 h-5 text-gray-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         <input 
                             v-model="searchQuery"
                             type="text" 
                             placeholder="Zoeken in Drive" 
-                            class="bg-transparent border-none focus:ring-0 w-full text-sm placeholder-gray-500"
+                            class="bg-transparent border-none focus:ring-0 w-full text-base placeholder-gray-500"
                         >
                     </div>
                     <div class="flex-grow"></div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-1">
                         <button 
                             @click="viewMode = viewMode === 'grid' ? 'list' : 'grid'"
                             class="p-2 rounded-full hover:bg-gray-100 text-gray-600"

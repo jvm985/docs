@@ -26,5 +26,7 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Vite::prefetch(concurrency: 3);
+
+        \App\Models\File::observe(\App\Observers\FileObserver::class);
     }
 }

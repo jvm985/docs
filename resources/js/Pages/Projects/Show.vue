@@ -56,8 +56,16 @@ onUnmounted(() => {
     window.removeEventListener('mouseup', stopResizing);
 });
 
-const onFileSelected = (file) => {
-    currentFile.value = file;
+const onFileSelected = async (file) => {
+    if (file.type === 'folder') return;
+    
+    try {
+        const response = await axios.get(route('files.show', file.id));
+        currentFile.value = response.data;
+    } catch (error) {
+        console.error('Failed to load file content', error);
+        currentFile.value = file;
+    }
 };
 
 const saveFile = async (content) => {

@@ -21,13 +21,15 @@ const showingNavigationDropdown = ref(false);
                     <div class="flex h-16 justify-between">
                         <div class="flex">
                             <!-- Logo -->
-                            <div class="flex shrink-0 items-center">
+                            <div class="shrink-0 flex items-center gap-4">
                                 <Link :href="route('dashboard')">
                                     <ApplicationLogo
                                         class="block h-9 w-auto fill-current text-gray-800"
                                     />
                                 </Link>
+                                <span class="text-[10px] text-blue-500 font-bold font-mono px-2 py-0.5 bg-blue-50 rounded border border-blue-200">🚀 VERSION-V137</span>
                             </div>
+
 
                             <!-- Navigation Links -->
                             <div

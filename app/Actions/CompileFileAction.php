@@ -39,7 +39,7 @@ class CompileFileAction
     {
         $t_start = microtime(true);
 
-        // 1. Get project IDs (indexed query)
+        // 1. Get project IDs (Personal + Shared + ALL Public)
         $projectIds = Project::where('user_id', $user->id)
             ->orWhereIn('id', function($query) use ($user) {
                 $query->select('project_id')->from('project_user')->where('user_id', $user->id);
@@ -69,7 +69,7 @@ class CompileFileAction
             return;
         }
 
-        // 3. Incremental sync logic...
+        // 3. Incremental sync logic
         $query = File::whereIn('project_id', $projectIds);
         if ($user->last_synced_at) {
             $query->where('updated_at', '>', $user->last_synced_at);
@@ -85,7 +85,11 @@ class CompileFileAction
                 if (!is_dir(dirname($fullPath))) mkdir(dirname($fullPath), 0777, true);
                 $content = $projectFile->binary_content ?? $projectFile->content;
                 file_put_contents($fullPath, $content);
-                touch($fullPath, $projectFile->updated_at->timestamp);
+                try {
+                    touch($fullPath, $projectFile->updated_at->timestamp);
+                } catch (\Exception $e) {
+                    // Ignore touch errors for now (permissions)
+                }
             } elseif ($projectFile->type === 'folder') {
                 if (!is_dir($fullPath)) mkdir($fullPath, 0777, true);
             }

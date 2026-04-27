@@ -31,7 +31,7 @@ class LatexCompiler implements CompilerInterface
                 'TEXMFVAR' => $projectDir . '/texmf',
                 'OPENOUT_ANY' => 'a',
                 'OPENIN_ANY' => 'a',
-                'TEXINPUTS' => ".:$workspaceDir:"
+                'TEXINPUTS' => ".:$workspaceDir//:"
             ])
             ->run([
                 'latexmk',

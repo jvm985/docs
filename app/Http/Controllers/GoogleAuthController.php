@@ -19,26 +19,37 @@ class GoogleAuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->user();
             
-            \Log::info('Google Login Attempt', ['email' => $googleUser->email]);
+            \Log::info('Google Login Callback Received', [
+                'email' => $googleUser->email,
+                'name' => $googleUser->name,
+                'id' => $googleUser->id
+            ]);
 
             $user = User::updateOrCreate([
-                'google_id' => $googleUser->id,
-            ], [
-                'name' => $googleUser->name,
                 'email' => $googleUser->email,
+            ], [
+                'google_id' => $googleUser->id,
+                'name' => $googleUser->name,
                 'google_token' => $googleUser->token,
                 'google_refresh_token' => $googleUser->refreshToken,
                 'email_verified_at' => now(),
             ]);
 
+            \Log::info('User record prepared', ['user_id' => $user->id]);
+
             Auth::login($user, true);
-            \Log::info('User logged in', ['id' => $user->id]);
+            
+            \Log::info('Auth::login completed', [
+                'check' => Auth::check(),
+                'id' => Auth::id()
+            ]);
 
             return redirect()->intended('dashboard');
         } catch (\Exception $e) {
-            \Log::error('Google Login Error', [
+            \Log::error('Google Login Exception', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
             ]);
             return redirect('login')->with('error', 'Google login failed: ' . $e->getMessage());
         }

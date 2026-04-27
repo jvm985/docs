@@ -29,9 +29,9 @@ class LatexCompiler implements CompilerInterface
             ->env([
                 'TEXMFCONFIG' => $projectDir . '/texmf',
                 'TEXMFVAR' => $projectDir . '/texmf',
-                'OPENOUT_ANY' => 'a',
-                'OPENIN_ANY' => 'a',
-                'TEXINPUTS' => ".:$workspaceDir//:"
+                'openout_any' => 'a',
+                'openin_any' => 'a',
+                'TEXINPUTS' => ".:$projectDir:$workspaceDir//:"
             ])
             ->run([
                 'latexmk',

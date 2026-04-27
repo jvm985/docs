@@ -119,13 +119,24 @@ const copyFile = async (file) => {
 const onFileUpload = async (event) => {
     const files = event.target.files;
     if (!files.length) return;
+    
     const formData = new FormData();
     formData.append('project_id', props.project.id);
-    formData.append('file', files[0]);
+    
+    for (let i = 0; i < files.length; i++) {
+        formData.append('files[]', files[i]);
+        // Gebruik webkitRelativePath om de mappenstructuur te behouden
+        formData.append('paths[]', files[i].webkitRelativePath || files[i].name);
+    }
+
     try {
-        await axios.post(route('files.upload'), formData);
+        await axios.post(route('files.upload'), formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
         router.reload({ only: ['project'] });
-    } catch (error) { alert('Error'); }
+    } catch (error) { 
+        alert('Upload failed: ' + (error.response?.data?.message || error.message)); 
+    }
 };
 </script>
 
@@ -136,9 +147,17 @@ const onFileUpload = async (event) => {
             <div class="flex gap-2">
                 <button @click="createFile(null, 'file')" class="text-blue-500 hover:text-blue-700" title="New File">📄+</button>
                 <button @click="createFile(null, 'folder')" class="text-green-500 hover:text-green-700" title="New Folder">📁+</button>
-                <label class="cursor-pointer text-orange-500 hover:text-orange-700" title="Upload">
-                    ⬆️
-                    <input type="file" class="hidden" @change="onFileUpload" />
+                
+                <!-- Upload Files -->
+                <label class="cursor-pointer text-orange-500 hover:text-orange-700" title="Upload Files">
+                    ⬆️📄
+                    <input type="file" class="hidden" multiple @change="onFileUpload" />
+                </label>
+
+                <!-- Upload Folder -->
+                <label class="cursor-pointer text-orange-600 hover:text-orange-800" title="Upload Folder">
+                    ⬆️📁
+                    <input type="file" class="hidden" webkitdirectory directory @change="onFileUpload" />
                 </label>
             </div>
         </div>

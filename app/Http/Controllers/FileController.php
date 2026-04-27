@@ -21,30 +21,55 @@ class FileController extends Controller
         $request->validate([
             'project_id' => 'required|exists:projects,id',
             'parent_id' => 'nullable|exists:files,id',
-            'file' => 'required|file',
+            'files' => 'required|array',
+            'files.*' => 'file',
+            'paths' => 'nullable|array',
         ]);
 
         $project = Project::findOrFail($request->project_id);
         $this->authorize('update', $project);
 
-        $uploadedFile = $request->file('file');
-        $name = $uploadedFile->getClientOriginalName();
-        $extension = $uploadedFile->getClientOriginalExtension();
-        $isBinary = !in_array($extension, ['txt', 'tex', 'typ', 'md', 'rmd', 'R', 'json', 'xml', 'csv']);
+        $uploadedFiles = $request->file('files');
+        $paths = $request->input('paths', []);
+        $createdFiles = [];
 
-        $file = File::create([
-            'project_id' => $request->project_id,
-            'parent_id' => $request->parent_id,
-            'name' => $name,
-            'type' => 'file',
-            'extension' => $extension,
-            'content' => $isBinary ? null : file_get_contents($uploadedFile->getRealPath()),
-            'binary_content' => $isBinary ? file_get_contents($uploadedFile->getRealPath()) : null,
-        ]);
+        foreach ($uploadedFiles as $index => $uploadedFile) {
+            $fullPath = $paths[$index] ?? $uploadedFile->getClientOriginalName();
+            $pathParts = explode('/', $fullPath);
+            $fileName = array_pop($pathParts);
+            
+            $currentParentId = $request->parent_id;
 
-        $this->syncToDisk($file);
+            // Recreate folder structure
+            foreach ($pathParts as $folderName) {
+                $folder = File::firstOrCreate([
+                    'project_id' => $request->project_id,
+                    'parent_id' => $currentParentId,
+                    'name' => $folderName,
+                    'type' => 'folder',
+                ]);
+                $currentParentId = $folder->id;
+                $this->syncToDisk($folder);
+            }
 
-        return response()->json($file);
+            $extension = $uploadedFile->getClientOriginalExtension();
+            $isBinary = !in_array(strtolower($extension), ['txt', 'tex', 'typ', 'md', 'rmd', 'r', 'json', 'xml', 'csv']);
+
+            $file = File::create([
+                'project_id' => $request->project_id,
+                'parent_id' => $currentParentId,
+                'name' => $fileName,
+                'type' => 'file',
+                'extension' => $extension,
+                'content' => $isBinary ? null : file_get_contents($uploadedFile->getRealPath()),
+                'binary_content' => $isBinary ? file_get_contents($uploadedFile->getRealPath()) : null,
+            ]);
+
+            $this->syncToDisk($file);
+            $createdFiles[] = $file;
+        }
+
+        return response()->json($createdFiles);
     }
 
     public function store(Request $request): JsonResponse

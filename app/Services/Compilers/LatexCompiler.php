@@ -31,11 +31,14 @@ class LatexCompiler implements CompilerInterface
                 'TEXMFVAR' => $projectDir . '/texmf',
                 'openout_any' => 'a',
                 'openin_any' => 'a',
+                'OPENOUT_ANY' => 'a',
+                'OPENIN_ANY' => 'a',
                 'TEXINPUTS' => ".:$projectDir:$workspaceDir//:"
             ])
             ->run([
                 'latexmk',
                 '-xelatex',
+                '-f', // Forceer doorgaan bij ontbrekende bestanden/fouten
                 '-interaction=nonstopmode',
                 '-shell-escape',
                 '-jobname=' . pathinfo($mainFilePath, PATHINFO_FILENAME),

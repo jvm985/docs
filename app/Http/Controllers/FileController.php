@@ -53,7 +53,22 @@ class FileController extends Controller
             }
 
             $extension = $uploadedFile->getClientOriginalExtension();
+            $rawContent = file_get_contents($uploadedFile->getRealPath());
+            
+            // Check if it is valid UTF-8
+            $isUtf8 = mb_check_encoding($rawContent, 'UTF-8');
             $isBinary = !in_array(strtolower($extension), ['txt', 'tex', 'typ', 'md', 'rmd', 'r', 'json', 'xml', 'csv']);
+
+            if (!$isUtf8 && !$isBinary) {
+                // Try to convert from ISO-8859-1 to UTF-8 for common text files
+                $converted = @mb_convert_encoding($rawContent, 'UTF-8', 'ISO-8859-1');
+                if (mb_check_encoding($converted, 'UTF-8')) {
+                    $rawContent = $converted;
+                } else {
+                    // If conversion fails, treat as binary even if it has a text extension
+                    $isBinary = true;
+                }
+            }
 
             $file = File::create([
                 'project_id' => $request->project_id,
@@ -61,8 +76,8 @@ class FileController extends Controller
                 'name' => $fileName,
                 'type' => 'file',
                 'extension' => $extension,
-                'content' => $isBinary ? null : file_get_contents($uploadedFile->getRealPath()),
-                'binary_content' => $isBinary ? file_get_contents($uploadedFile->getRealPath()) : null,
+                'content' => $isBinary ? null : $rawContent,
+                'binary_content' => $isBinary ? $rawContent : null,
             ]);
 
             $this->syncToDisk($file);

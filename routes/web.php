@@ -30,6 +30,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     Route::resource('projects', ProjectController::class);
+    Route::post('projects/{project}/duplicate', [ProjectController::class, 'duplicate'])->name('projects.duplicate');
     Route::patch('projects/{project}/share', [ProjectController::class, 'updateSharing'])->name('projects.share.update');
 
     Route::get('/debug-frontend', function () {

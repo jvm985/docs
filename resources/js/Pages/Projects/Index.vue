@@ -121,10 +121,16 @@ const formatDate = (dateString) => {
     });
 };
 
-const toggleContextMenu = (id) => {
+const menuPosition = ref('down'); // 'up' or 'down'
+
+const toggleContextMenu = (e, id) => {
     if (activeContextMenu.value === id) {
         activeContextMenu.value = null;
     } else {
+        // Check of er genoeg ruimte is onderaan
+        const rect = e.currentTarget.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        menuPosition.value = spaceBelow < 200 ? 'up' : 'down';
         activeContextMenu.value = id;
     }
 };
@@ -224,11 +230,13 @@ onUnmounted(() => document.removeEventListener('click', closeContextMenu));
                                     
                                     <!-- Context Menu -->
                                     <div class="relative z-20">
-                                        <button @click.stop="toggleContextMenu(project.id)" class="context-menu-trigger p-1.5 rounded-full hover:bg-gray-200 group-hover:opacity-100 transition-opacity">
+                                        <button @click.stop="toggleContextMenu($event, project.id)" class="context-menu-trigger p-1.5 rounded-full hover:bg-gray-200 group-hover:opacity-100 transition-opacity">
                                             <svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>
                                         </button>
                                         
-                                        <div v-if="activeContextMenu === project.id" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-30">
+                                        <div v-if="activeContextMenu === project.id" 
+                                            :class="['absolute right-0 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-30 animate-in fade-in zoom-in-95 duration-100', menuPosition === 'up' ? 'bottom-full mb-2 origin-bottom-right' : 'mt-2 origin-top-right']"
+                                        >
                                             <button @click.stop="openRenameModal(project)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                                 Hernoemen
@@ -277,11 +285,13 @@ onUnmounted(() => document.removeEventListener('click', closeContextMenu));
                                         <td class="px-6 py-4">mij</td>
                                         <td class="px-6 py-4">{{ formatDate(project.updated_at) }}</td>
                                         <td class="px-6 py-4 text-right relative">
-                                            <button @click.stop="toggleContextMenu(project.id)" class="context-menu-trigger p-1.5 rounded-full hover:bg-gray-200 text-gray-400">
+                                            <button @click.stop="toggleContextMenu($event, project.id)" class="context-menu-trigger p-1.5 rounded-full hover:bg-gray-200 text-gray-400">
                                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path></svg>
                                             </button>
                                             
-                                            <div v-if="activeContextMenu === project.id" class="absolute right-6 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-30">
+                                            <div v-if="activeContextMenu === project.id" 
+                                                :class="['absolute right-6 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-30 animate-in fade-in zoom-in-95 duration-100', menuPosition === 'up' ? 'bottom-full mb-2 origin-bottom-right' : 'mt-2 origin-top-right']"
+                                            >
                                                 <button @click.stop="openRenameModal(project)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                                                     Hernoemen

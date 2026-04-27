@@ -34,9 +34,9 @@ class ProjectController extends Controller
     {
         $this->authorize('view', $project);
 
-        // Laad files maar ZONDER de zware binaire data (die breekt JSON en is traag)
+        // Laad files maar ZONDER de zware data (die nu op de schijf leeft)
         $project->load(['sharedUsers', 'files' => function($query) {
-            $query->select('id', 'project_id', 'parent_id', 'name', 'type', 'extension', 'content', 'created_at', 'updated_at', 'preferred_compiler');
+            $query->select('id', 'project_id', 'parent_id', 'name', 'type', 'extension', 'created_at', 'updated_at', 'preferred_compiler');
         }]);
 
         return Inertia::render('Projects/Show', [

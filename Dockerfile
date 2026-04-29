@@ -1,5 +1,5 @@
 # Stage 1: Node assets
-FROM node:20-alpine AS assets
+FROM node:24-alpine AS assets
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

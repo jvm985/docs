@@ -57,6 +57,8 @@ window.editorApp = function (projectId) {
         saving: false,
         saved: false,
         pdfUrl: null,
+        rPlots: [],
+        rVars: [],
         _saveTimeout: null,
 
         async init() {
@@ -137,6 +139,8 @@ window.editorApp = function (projectId) {
             this.pdfUrl = null;
             this.compileOutput = '';
             this.rOutput = [];
+            this.rPlots = [];
+            this.rVars = [];
             this._initEditor(data.content ?? '', data.name);
         },
 
@@ -244,6 +248,12 @@ window.editorApp = function (projectId) {
                 });
                 if (res.output) {
                     this.rOutput = [...this.rOutput, ...res.output];
+                }
+                if (res.variables) {
+                    this.rVars = res.variables;
+                }
+                if (res.plots?.length) {
+                    this.rPlots = [...this.rPlots, ...res.plots];
                 }
             } catch (e) {
                 this.rOutput = [...this.rOutput, { type: 'error', text: e.message }];

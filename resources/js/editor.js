@@ -120,7 +120,10 @@ window.editorApp = function (projectId) {
                     btn.style.paddingLeft = (depth * 12 + 8) + 'px';
                     btn.setAttribute('data-node-id', node.id);
                     btn.innerHTML = `<span class="text-gray-400">📄</span><span class="truncate text-gray-700">${this._esc(node.name)}</span>`;
-                    btn.addEventListener('click', () => this.openFile(node));
+                    const projectId = this.projectId;
+                    btn.addEventListener('click', () => {
+                        window.location.href = `/editor/${projectId}?file=${node.id}`;
+                    });
                     parent.appendChild(btn);
                 }
             }

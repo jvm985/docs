@@ -2,9 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Jobs\CompileDocumentJob;
+use App\Jobs\ExecuteRCodeJob;
 use App\Models\Node;
 use App\Models\Project;
-use App\Services\RSessionManager;
+use App\Models\User;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -31,9 +33,10 @@ class Editor extends Page
     #[Url]
     public ?int $nodeId = null;
 
-    public function mount(int $project): void
+    public function mount(?int $project = null): void
     {
-        $this->projectId = $project;
+        $this->projectId = $project ?? (int) request()->query('project');
+        abort_unless($this->projectId, 404);
         $this->authorize('view', $this->project);
 
         if ($this->nodeId) {
@@ -153,7 +156,7 @@ class Editor extends Page
             $node->shares()->create(['is_public' => true, 'permission' => $permission]);
         } else {
             foreach ($users as $entry) {
-                $user = \App\Models\User::where('email', $entry['email'])->first();
+                $user = User::where('email', $entry['email'])->first();
                 if ($user) {
                     $node->shares()->create(['user_id' => $user->id, 'permission' => $entry['permission']]);
                 }
@@ -172,7 +175,7 @@ class Editor extends Page
 
         $this->authorize('update', $this->project);
 
-        \App\Jobs\CompileDocumentJob::dispatch(
+        CompileDocumentJob::dispatch(
             $this->activeNode,
             auth()->user(),
             $this->activeCompiler
@@ -193,7 +196,7 @@ class Editor extends Page
 
         $this->authorize('update', $this->project);
 
-        \App\Jobs\ExecuteRCodeJob::dispatch(
+        ExecuteRCodeJob::dispatch(
             $this->activeNode,
             auth()->user(),
             $code

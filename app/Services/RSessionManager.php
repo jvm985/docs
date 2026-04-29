@@ -16,6 +16,12 @@ class RSessionManager
         $workspaceDir = $this->workspaceDir($user);
         $this->ensureWorkspaceExists($workspaceDir);
 
+        // Verwijder oude plots zodat alleen nieuwe plots terugkomen
+        $plotDir = $workspaceDir.'/plots';
+        if (is_dir($plotDir)) {
+            array_map('unlink', glob($plotDir.'/*.png'));
+        }
+
         $script = $this->buildScript($workspaceDir, $code);
         $scriptFile = $workspaceDir.'/run_'.uniqid().'.R';
         file_put_contents($scriptFile, $script);
@@ -138,9 +144,7 @@ RSCRIPT;
                 $plots[] = 'data:image/png;base64,'.base64_encode(file_get_contents($plotFile));
             }
         }
-        if (! empty($plots)) {
-            Cache::put("r_plots_{$user->id}", $plots, now()->addHour());
-        }
+        Cache::put("r_plots_{$user->id}", $plots, now()->addHour());
     }
 
     private function workspaceDir(User $user): string

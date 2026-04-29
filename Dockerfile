@@ -1,12 +1,19 @@
-# Stage 1: Node assets
+# Stage 1: Composer dependencies (needed for Filament theme CSS)
+FROM composer:latest AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --ignore-platform-reqs
+
+# Stage 2: Node assets (needs vendor for Filament theme)
 FROM node:24-alpine AS assets
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+COPY --from=vendor /app/vendor ./vendor
 RUN npm run build
 
-# Stage 2: PHP app
+# Stage 3: PHP app
 FROM php:8.4-fpm-alpine
 
 RUN apk add --no-cache \

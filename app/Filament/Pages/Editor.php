@@ -205,6 +205,10 @@ class Editor extends Page
 
     public function pollUpdates(): void
     {
+        if (! $this->activeNode) {
+            return;
+        }
+
         $userId = auth()->id();
 
         $rOutput = Cache::pull("r_output_{$userId}", []);
@@ -222,7 +226,7 @@ class Editor extends Page
             $this->dispatch('r-plot', $plot);
         }
 
-        if ($this->activeNode?->isCompilable()) {
+        if ($this->activeNode->isCompilable()) {
             $latestLog = $this->activeNode->compileLogs()->latest()->first();
             if ($latestLog?->isSuccessful() && $latestLog->pdf_path) {
                 $this->dispatch('pdf-ready', url: Storage::url($latestLog->pdf_path));

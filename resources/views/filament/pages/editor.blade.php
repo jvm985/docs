@@ -1,4 +1,4 @@
-<x-filament-panels::page wire:poll.2000ms="pollUpdates">
+<x-filament-panels::page wire:poll.5s.visible="pollUpdates">
     @vite('resources/js/editor.js')
 
     <style>

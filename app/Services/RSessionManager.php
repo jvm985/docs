@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Manages persistent R sessions per user using rscript with a shared workspace.
@@ -18,7 +17,7 @@ class RSessionManager
         $this->ensureWorkspaceExists($workspaceDir);
 
         $script = $this->buildScript($workspaceDir, $code);
-        $scriptFile = $workspaceDir . '/run_' . uniqid() . '.R';
+        $scriptFile = $workspaceDir.'/run_'.uniqid().'.R';
         file_put_contents($scriptFile, $script);
 
         $cmd = sprintf('Rscript --no-restore %s 2>&1', escapeshellarg($scriptFile));
@@ -33,63 +32,59 @@ class RSessionManager
 
     private function buildScript(string $workspaceDir, string $code): string
     {
-        $dataFile = escapeshellarg($workspaceDir . '/.RData');
-        $plotDir = escapeshellarg($workspaceDir . '/plots');
-        $code = addslashes($code);
+        $dataFile = $workspaceDir.'/.RData';
+        $plotDir = $workspaceDir.'/plots';
+        $escapedCode = str_replace(['\\', '"'], ['\\\\', '\\"'], $code);
 
-        return <<<R
-        # Load previous session
-        if (file.exists({$dataFile})) {
-            load({$dataFile})
-        }
+        return <<<RSCRIPT
+# Load previous session
+dataFile <- "{$dataFile}"
+plotDir <- "{$plotDir}"
+if (file.exists(dataFile)) load(dataFile)
 
-        # Capture plots
-        dir.create({$plotDir}, showWarnings = FALSE, recursive = TRUE)
-        plot_count <- length(list.files({$plotDir}, pattern = "\\.png$"))
+# Capture plots
+dir.create(plotDir, showWarnings = FALSE, recursive = TRUE)
+plot_count <- length(list.files(plotDir, pattern = "[.]png\$"))
+png_device <- function() {
+    plot_count <<- plot_count + 1
+    png(filename = file.path(plotDir, paste0("plot_", plot_count, ".png")), width = 800, height = 600)
+}
+options(device = png_device)
 
-        png_device <- function() {
-            plot_count <<- plot_count + 1
-            png(filename = paste0({$plotDir}, "/plot_", plot_count, ".png"), width = 800, height = 600)
-        }
-        options(device = png_device)
+# Execute user code
+tryCatch({
+    cat("__CODE_START__\\n")
+    cat("{$escapedCode}\\n")
+    cat("__CODE_END__\\n")
+    result <- eval(parse(text = "{$escapedCode}"))
+    if (!is.null(result)) {
+        cat("__OUTPUT_START__\\n")
+        print(result)
+        cat("__OUTPUT_END__\\n")
+    }
+}, error = function(e) {
+    cat("__ERROR_START__\\n")
+    cat(conditionMessage(e), "\\n")
+    cat("__ERROR_END__\\n")
+}, warning = function(w) {
+    cat("__WARNING_START__\\n")
+    cat(conditionMessage(w), "\\n")
+    cat("__WARNING_END__\\n")
+})
 
-        # Execute user code
-        tryCatch({
-            cat("__CODE_START__\n")
-            cat("{$code}\n")
-            cat("__CODE_END__\n")
+# List environment variables
+cat("__VARS_START__\\n")
+vars <- ls(envir = .GlobalEnv)
+for (v in vars) {
+    val <- get(v, envir = .GlobalEnv)
+    cat(v, "|", class(val)[1], "|", paste(utils::capture.output(str(val)), collapse = " "), "\\n")
+}
+cat("__VARS_END__\\n")
 
-            result <- eval(parse(text = "{$code}"))
-            if (!is.null(result)) {
-                cat("__OUTPUT_START__\n")
-                print(result)
-                cat("__OUTPUT_END__\n")
-            }
-        }, error = function(e) {
-            cat("__ERROR_START__\n")
-            cat(conditionMessage(e), "\n")
-            cat("__ERROR_END__\n")
-        }, warning = function(w) {
-            cat("__WARNING_START__\n")
-            cat(conditionMessage(w), "\n")
-            cat("__WARNING_END__\n")
-        })
-
-        # List environment variables
-        cat("__VARS_START__\n")
-        vars <- ls(envir = .GlobalEnv)
-        for (v in vars) {
-            val <- get(v, envir = .GlobalEnv)
-            cat(v, "|", class(val)[1], "|", paste(utils::capture.output(str(val)), collapse = " "), "\n")
-        }
-        cat("__VARS_END__\n")
-
-        # Save session
-        save.image(file = {$dataFile})
-
-        # Close any open devices
-        while (dev.cur() > 1) dev.off()
-        R;
+# Save session
+save.image(file = dataFile)
+while (dev.cur() > 1) dev.off()
+RSCRIPT;
     }
 
     private function dispatchROutput(User $user, string $code, string $rawOutput, string $workspaceDir): void
@@ -109,12 +104,12 @@ class RSessionManager
 
         // Errors
         if (preg_match('/__ERROR_START__\n(.*?)\n__ERROR_END__/s', $rawOutput, $m)) {
-            $entries[] = ['type' => 'error', 'text' => 'Error: ' . trim($m[1])];
+            $entries[] = ['type' => 'error', 'text' => 'Error: '.trim($m[1])];
         }
 
         // Warnings
         if (preg_match('/__WARNING_START__\n(.*?)\n__WARNING_END__/s', $rawOutput, $m)) {
-            $entries[] = ['type' => 'error', 'text' => 'Warning: ' . trim($m[1])];
+            $entries[] = ['type' => 'error', 'text' => 'Warning: '.trim($m[1])];
         }
 
         // Store output in cache for Livewire to pick up via polling/events
@@ -122,15 +117,16 @@ class RSessionManager
         $existing = Cache::get($cacheKey, []);
         Cache::put($cacheKey, array_merge($existing, $entries), now()->addHour());
 
-        // Variables
+        // Variables (filter interne script-variabelen)
         $variables = [];
+        $internalVars = ['dataFile', 'plotDir', 'plot_count', 'png_device', 'result'];
         if (preg_match('/__VARS_START__\n(.*?)\n__VARS_END__/s', $rawOutput, $m)) {
             foreach (explode("\n", trim($m[1])) as $line) {
                 if (empty(trim($line))) {
                     continue;
                 }
                 $parts = explode('|', $line, 3);
-                if (count($parts) === 3) {
+                if (count($parts) === 3 && ! in_array(trim($parts[0]), $internalVars)) {
                     $variables[] = [
                         'name' => trim($parts[0]),
                         'class' => trim($parts[1]),
@@ -142,14 +138,14 @@ class RSessionManager
         Cache::put("r_vars_{$user->id}", $variables, now()->addHour());
 
         // Plots
-        $plotDir = $workspaceDir . '/plots';
+        $plotDir = $workspaceDir.'/plots';
         $plots = [];
         if (is_dir($plotDir)) {
-            foreach (glob($plotDir . '/*.png') as $plotFile) {
-                $plots[] = 'data:image/png;base64,' . base64_encode(file_get_contents($plotFile));
+            foreach (glob($plotDir.'/*.png') as $plotFile) {
+                $plots[] = 'data:image/png;base64,'.base64_encode(file_get_contents($plotFile));
             }
         }
-        if (!empty($plots)) {
+        if (! empty($plots)) {
             Cache::put("r_plots_{$user->id}", $plots, now()->addHour());
         }
     }
@@ -161,7 +157,7 @@ class RSessionManager
 
     private function ensureWorkspaceExists(string $dir): void
     {
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
     }
@@ -169,7 +165,7 @@ class RSessionManager
     public function clearSession(User $user): void
     {
         $workspaceDir = $this->workspaceDir($user);
-        $dataFile = $workspaceDir . '/.RData';
+        $dataFile = $workspaceDir.'/.RData';
         if (file_exists($dataFile)) {
             @unlink($dataFile);
         }

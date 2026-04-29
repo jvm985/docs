@@ -83,7 +83,7 @@ class ProjectResource extends Resource
                 Action::make('open')
                     ->label('Openen')
                     ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
-                    ->url(fn (Project $record) => route('filament.admin.pages.editor', ['project' => $record->id]))
+                    ->url(fn (Project $record) => route('editor', $record))
                     ->openUrlInNewTab(),
 
                 ShareAction::make(),

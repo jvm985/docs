@@ -34,7 +34,15 @@
       "Bash(grep -i \"GOCSPX\\\\|client_secret.*[A-Za-z0-9_-]\\\\{20,\\\\}\" /tmp/claude-1000/-home-joachim-develop-docs/f7fb6f4e-ef54-414f-81b7-67a039df8747/tasks/b1w00i2m4.output)",
       "Bash(find /home/joachim/develop/docs/vendor/filament -name simple-page* -o -name simplepage*)",
       "Bash(npx playwright:*)",
-      "Bash(COOKIE=\"eyJpdiI6ImNrajFhMUFjYnArSFlkSjAxM1ZWaFE9PSIsInZhbHVlIjoiM0ZXeGdGSjBRSFJNNE9EdEEvMWxtVldYeUtiVEJyekZXbDRiYnNNUTRRRT0iLCJtYWMiOiI0NDFjZTk2OWQ2ODJlNWZmYjM0MDQ0M2MxZmIzMmVkYzgzZTU1ZjIzY2I2Y2VlM2VlZDVlM2RjYzMwMjdmYWFkIiwidGFnIjoiIn0=\")"
+      "Bash(COOKIE=\"eyJpdiI6ImNrajFhMUFjYnArSFlkSjAxM1ZWaFE9PSIsInZhbHVlIjoiM0ZXeGdGSjBRSFJNNE9EdEEvMWxtVldYeUtiVEJyekZXbDRiYnNNUTRRRT0iLCJtYWMiOiI0NDFjZTk2OWQ2ODJlNWZmYjM0MDQ0M2MxZmIzMmVkYzgzZTU1ZjIzY2I2Y2VlM2VlZDVlM2RjYzMwMjdmYWFkIiwidGFnIjoiIn0=\")",
+      "Bash(kill*)",
+      "Bash(ls*)",
+      "Bash(pkill*)",
+      "Bash(COOKIE*)",
+      "Bash(npm run:*)",
+      "Bash(php)",
+      "Bash(cat tests/Browser/Screenshots/*.png)",
+      "Bash(npm uninstall:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -19,9 +19,17 @@
         </div>
     </header>
 
-    <main class="mx-auto max-w-3xl px-4 py-8">
+    <main class="mx-auto max-w-4xl px-4 py-8">
+        @if(session('success'))
+            <div class="mb-4 rounded bg-green-50 p-3 text-sm text-green-700">{{ session('success') }}</div>
+        @endif
+        @if($errors->any())
+            <div class="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{{ $errors->first() }}</div>
+        @endif
+
+        {{-- Mijn projecten --}}
         <div class="mb-6 flex items-center justify-between">
-            <h1 class="text-2xl font-bold">Projecten</h1>
+            <h1 class="text-2xl font-bold">Mijn projecten</h1>
             <form method="POST" action="{{ route('projects.store') }}" class="flex gap-2">
                 @csrf
                 <input name="name" required placeholder="Projectnaam" class="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none">
@@ -29,18 +37,15 @@
             </form>
         </div>
 
-        @if($errors->any())
-            <div class="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{{ $errors->first() }}</div>
-        @endif
-
         @if($projects->isEmpty())
             <p class="py-12 text-center text-gray-400">Geen projecten. Maak je eerste project aan.</p>
         @else
-            <div class="overflow-hidden rounded-lg border bg-white">
+            <div class="mb-10 overflow-hidden rounded-lg border bg-white">
                 <table class="w-full text-sm">
                     <thead class="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
                         <tr>
                             <th class="px-4 py-3">Naam</th>
+                            <th class="px-4 py-3">Gedeeld</th>
                             <th class="px-4 py-3">Laatste wijziging</th>
                             <th class="px-4 py-3 text-right">Acties</th>
                         </tr>
@@ -52,14 +57,65 @@
                                     <a href="{{ route('editor', $project) }}" class="font-medium text-amber-600 hover:underline">{{ $project->name }}</a>
                                 </td>
                                 <td class="px-4 py-3 text-gray-500">
+                                    @if($project->shares->where('is_public', true)->count())
+                                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Publiek</span>
+                                    @elseif($project->shares->count())
+                                        <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{{ $project->shares->count() }} gebruiker(s)</span>
+                                    @else
+                                        <span class="text-xs text-gray-400">Privé</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-gray-500">
                                     {{ $project->nodes_max_updated_at ? \Carbon\Carbon::parse($project->nodes_max_updated_at)->format('d/m/Y H:i') : '—' }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    <form method="POST" action="{{ route('projects.destroy', $project) }}" onsubmit="return confirm('Project verwijderen?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
-                                    </form>
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button onclick="document.getElementById('share-{{ $project->id }}').showModal()" class="text-xs text-blue-500 hover:text-blue-700">Delen</button>
+                                        <form method="POST" action="{{ route('projects.duplicate', $project) }}" class="inline">
+                                            @csrf
+                                            <button type="submit" class="text-xs text-gray-500 hover:text-gray-700">Kopiëren</button>
+                                        </form>
+                                        <form method="POST" action="{{ route('projects.destroy', $project) }}" onsubmit="return confirm('Project verwijderen?')" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+
+        {{-- Gedeeld met mij --}}
+        @if($sharedProjects->isNotEmpty())
+            <h2 class="mb-4 text-xl font-bold">Gedeeld met mij</h2>
+            <div class="overflow-hidden rounded-lg border bg-white">
+                <table class="w-full text-sm">
+                    <thead class="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
+                        <tr>
+                            <th class="px-4 py-3">Naam</th>
+                            <th class="px-4 py-3">Eigenaar</th>
+                            <th class="px-4 py-3">Rechten</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y">
+                        @foreach($sharedProjects as $project)
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3">
+                                    <a href="{{ route('editor', $project) }}" class="font-medium text-amber-600 hover:underline">{{ $project->name }}</a>
+                                </td>
+                                <td class="px-4 py-3 text-gray-500">{{ $project->user->name }}</td>
+                                <td class="px-4 py-3">
+                                    @php
+                                        $share = $project->shares->where('user_id', auth()->id())->first()
+                                            ?? $project->shares->where('is_public', true)->first();
+                                    @endphp
+                                    <span class="text-xs {{ $share?->permission === 'write' ? 'text-green-600' : 'text-gray-500' }}">
+                                        {{ $share?->permission === 'write' ? 'Lezen & schrijven' : 'Alleen lezen' }}
+                                    </span>
                                 </td>
                             </tr>
                         @endforeach
@@ -68,5 +124,43 @@
             </div>
         @endif
     </main>
+
+    {{-- Deel-dialogen --}}
+    @foreach($projects as $project)
+        <dialog id="share-{{ $project->id }}" class="w-full max-w-md rounded-xl p-0 shadow-2xl backdrop:bg-black/50">
+            <form method="POST" action="{{ route('projects.share', $project) }}" class="p-6">
+                @csrf
+                <h3 class="mb-4 text-lg font-bold">{{ $project->name }} delen</h3>
+
+                <label class="mb-3 flex items-center gap-2">
+                    <input type="checkbox" name="is_public" value="1" {{ $project->shares->where('is_public', true)->count() ? 'checked' : '' }}
+                           onchange="this.form.querySelector('.public-opts').style.display = this.checked ? '' : 'none'; this.form.querySelector('.private-opts').style.display = this.checked ? 'none' : '';">
+                    <span class="text-sm">Deel met iedereen</span>
+                </label>
+
+                <div class="public-opts mb-4" style="{{ $project->shares->where('is_public', true)->count() ? '' : 'display:none' }}">
+                    <label class="text-xs text-gray-500">Rechten</label>
+                    <select name="permission" class="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm">
+                        <option value="read" {{ $project->shares->where('is_public', true)->first()?->permission === 'read' ? 'selected' : '' }}>Alleen lezen</option>
+                        <option value="write" {{ $project->shares->where('is_public', true)->first()?->permission === 'write' ? 'selected' : '' }}>Lezen en schrijven</option>
+                    </select>
+                </div>
+
+                <div class="private-opts mb-4" style="{{ $project->shares->where('is_public', true)->count() ? 'display:none' : '' }}">
+                    <label class="text-xs text-gray-500">E-mailadressen (één per regel)</label>
+                    <textarea name="emails" rows="3" class="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm" placeholder="naam@voorbeeld.be">{{ $project->shares->whereNotNull('user_id')->map(fn($s) => $s->user?->email)->filter()->implode("\n") }}</textarea>
+                    <select name="permission" class="mt-2 w-full rounded border border-gray-300 px-3 py-1.5 text-sm">
+                        <option value="read">Alleen lezen</option>
+                        <option value="write">Lezen en schrijven</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" onclick="this.closest('dialog').close()" class="px-4 py-1.5 text-sm text-gray-500 hover:text-gray-700">Annuleren</button>
+                    <button type="submit" class="rounded bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Opslaan</button>
+                </div>
+            </form>
+        </dialog>
+    @endforeach
 </body>
 </html>

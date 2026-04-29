@@ -10,8 +10,8 @@ RUN npm run build
 FROM php:8.4-fpm-alpine
 
 RUN apk add --no-cache \
-    curl zip unzip sqlite sqlite-dev libxml2-dev oniguruma-dev icu-dev \
-    && docker-php-ext-install pdo pdo_sqlite mbstring xml intl
+    curl zip unzip sqlite sqlite-dev libxml2-dev oniguruma-dev icu-dev libzip-dev \
+    && docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

@@ -32,3 +32,14 @@ it('shows the editor with filetree', function () {
         ->assertSee('images')
         ->screenshot();
 });
+
+it('has no javascript errors on editor page', function () {
+    $user = User::factory()->create();
+    $project = Project::factory()->create(['user_id' => $user->id]);
+    Node::factory()->create(['project_id' => $project->id, 'name' => 'main.tex', 'type' => 'file', 'content' => '\documentclass{article}']);
+    $this->actingAs($user);
+
+    visit("/admin/editor?project={$project->id}")
+        ->assertSee('main.tex')
+        ->assertNoJavaScriptErrors();
+});

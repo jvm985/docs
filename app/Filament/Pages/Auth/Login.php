@@ -2,13 +2,15 @@
 
 namespace App\Filament\Pages\Auth;
 
-use Filament\Auth\Pages\Login as BaseLogin;
-use Illuminate\Contracts\View\View;
+use Filament\Pages\SimplePage;
+use Illuminate\Contracts\Support\Htmlable;
 
-class Login extends BaseLogin
+class Login extends SimplePage
 {
-    public function getFooter(): ?View
+    protected string $view = 'filament.auth.login';
+
+    public function getTitle(): string|Htmlable
     {
-        return view('filament.auth.login-footer');
+        return config('app.name');
     }
 }

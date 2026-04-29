@@ -107,7 +107,7 @@ class EditorApiController extends Controller
         return response()->json([
             'status' => $log?->status,
             'output' => $log?->output,
-            'pdf_url' => $log?->pdf_path ? Storage::url($log->pdf_path) : null,
+            'pdf_url' => $log?->pdf_path ? Storage::disk('public')->url($log->pdf_path) : null,
         ]);
     }
 
@@ -142,7 +142,7 @@ class EditorApiController extends Controller
         return response()->json([
             'status' => $log?->status,
             'output' => $log?->output,
-            'pdf_url' => $log?->pdf_path ? Storage::url($log->pdf_path) : null,
+            'pdf_url' => $log?->pdf_path ? Storage::disk('public')->url($log->pdf_path) : null,
         ]);
     }
 }

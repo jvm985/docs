@@ -64,15 +64,15 @@ class CompileDocumentJob implements ShouldQueue
 
     private function prepareWorkDirectory(): string
     {
-        $workDir = storage_path('app/compile/' . Str::uuid());
+        $workDir = storage_path('app/compile/'.Str::uuid());
         mkdir($workDir, 0755, true);
 
         // Write all project files to work dir
         $projectNodes = $this->node->project->nodes()->where('type', 'file')->get();
         foreach ($projectNodes as $node) {
-            $filePath = $workDir . '/' . $node->name;
+            $filePath = $workDir.'/'.$node->name;
             $dir = dirname($filePath);
-            if (!is_dir($dir)) {
+            if (! is_dir($dir)) {
                 mkdir($dir, 0755, true);
             }
             file_put_contents($filePath, $node->content ?? '');
@@ -84,12 +84,12 @@ class CompileDocumentJob implements ShouldQueue
             if ($project->id === $this->node->project_id) {
                 continue;
             }
-            $projectDir = dirname($workDir) . '/' . $project->name;
-            if (!is_dir($projectDir)) {
+            $projectDir = dirname($workDir).'/'.$project->name;
+            if (! is_dir($projectDir)) {
                 mkdir($projectDir, 0755, true);
             }
             foreach ($project->nodes as $node) {
-                file_put_contents($projectDir . '/' . $node->name, $node->content ?? '');
+                file_put_contents($projectDir.'/'.$node->name, $node->content ?? '');
             }
         }
 
@@ -106,7 +106,7 @@ class CompileDocumentJob implements ShouldQueue
             'md' => $this->compileMarkdown($workDir, $fileName),
             'typ' => $this->compileTypst($workDir, $fileName),
             'rmd' => $this->compileRMarkdown($workDir, $fileName),
-            default => ['Unsupported file type: ' . $ext, null],
+            default => ['Unsupported file type: '.$ext, null],
         };
     }
 
@@ -125,14 +125,14 @@ class CompileDocumentJob implements ShouldQueue
         exec($cmd, $out2);
         $output = implode("\n", array_merge($out1, $out2));
 
-        $pdfFile = $workDir . '/' . pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
+        $pdfFile = $workDir.'/'.pathinfo($fileName, PATHINFO_FILENAME).'.pdf';
 
         return [$output, $this->storePdf($pdfFile)];
     }
 
     private function compileMarkdown(string $workDir, string $fileName): array
     {
-        $outFile = $workDir . '/' . pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
+        $outFile = $workDir.'/'.pathinfo($fileName, PATHINFO_FILENAME).'.pdf';
         $cmd = sprintf(
             'cd %s && pandoc %s -o %s 2>&1',
             escapeshellarg($workDir),
@@ -146,7 +146,7 @@ class CompileDocumentJob implements ShouldQueue
 
     private function compileTypst(string $workDir, string $fileName): array
     {
-        $outFile = $workDir . '/' . pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
+        $outFile = $workDir.'/'.pathinfo($fileName, PATHINFO_FILENAME).'.pdf';
         $cmd = sprintf(
             'cd %s && typst compile %s %s 2>&1',
             escapeshellarg($workDir),
@@ -167,19 +167,19 @@ class CompileDocumentJob implements ShouldQueue
         );
         exec($cmd, $out, $code);
 
-        $pdfFile = $workDir . '/' . pathinfo($fileName, PATHINFO_FILENAME) . '.pdf';
+        $pdfFile = $workDir.'/'.pathinfo($fileName, PATHINFO_FILENAME).'.pdf';
 
         return [implode("\n", $out), $code === 0 ? $this->storePdf($pdfFile) : null];
     }
 
     private function storePdf(string $pdfFile): ?string
     {
-        if (!file_exists($pdfFile)) {
+        if (! file_exists($pdfFile)) {
             return null;
         }
 
-        $storagePath = 'pdfs/' . $this->user->id . '/' . $this->node->id . '/' . basename($pdfFile);
-        Storage::put($storagePath, file_get_contents($pdfFile));
+        $storagePath = 'pdfs/'.$this->user->id.'/'.$this->node->id.'/'.basename($pdfFile);
+        Storage::disk('public')->put($storagePath, file_get_contents($pdfFile));
 
         return $storagePath;
     }
@@ -194,7 +194,7 @@ class CompileDocumentJob implements ShouldQueue
     private function cleanupWorkDirectory(string $workDir): void
     {
         if (is_dir($workDir)) {
-            exec('rm -rf ' . escapeshellarg($workDir));
+            exec('rm -rf '.escapeshellarg($workDir));
         }
     }
 }

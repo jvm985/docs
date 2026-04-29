@@ -1,5 +1,11 @@
-<x-filament-panels::page class="fi-editor-page !p-0" wire:poll.2000ms="pollUpdates">
+<x-filament-panels::page wire:poll.2000ms="pollUpdates">
     @vite('resources/js/editor.js')
+
+    <style>
+        .fi-page-content > div { max-width: none !important; padding: 0 !important; }
+        .fi-page { padding: 0 !important; }
+        .fi-main { padding: 0 !important; }
+    </style>
 
     {{-- Context menu --}}
     <div x-data="contextMenu()"

@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__laravel-boost__application-info",
+      "mcp__laravel-boost__search-docs",
+      "Bash(composer require:*)",
+      "Bash(php artisan:*)",
+      "Bash(npm install:*)",
+      "Bash(vendor/bin/pint --dirty --format agent)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(vendor/bin/pest --compact)",
+      "Bash(vendor/bin/pest --filter AuthTest 2>&1)",
+      "Bash(vendor/bin/pest --filter ProjectTest 2>&1)",
+      "Bash(vendor/bin/pest tests/Feature/ProjectTest.php --no-output)",
+      "Bash(vendor/bin/pest tests/Feature/ProjectTest.php)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(php -r \"require ''''vendor/autoload.php'''';\")",
+      "Bash(vendor/bin/pest tests/Feature/ProjectTest.php --format=junit)",
+      "Bash(vendor/bin/pest tests/Feature/ProjectTest.php --verbose)",
+      "Bash(vendor/bin/pest tests/Feature/ProjectTest.php --debug)",
+      "Bash(php -d display_errors=1 -d error_reporting=E_ALL vendor/bin/pest tests/Feature/ProjectTest.php)",
+      "Bash(php:*)",
+      "Bash(ssh:*)",
+      "Bash(git init:*)",
+      "Bash(git remote:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "laravel-boost"
+  ]
+}

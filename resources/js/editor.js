@@ -265,6 +265,69 @@ window.editorApp = function (projectId) {
     };
 };
 
+// ─── Resizable panels ───────────────────────────────────────────────────────
+
+window.resizablePanels = function () {
+    return {
+        leftW: 240,
+        rightW: 320,
+        _resizing: null,
+        _startX: 0,
+        _startW: 0,
+
+        startResize(side, e) {
+            e.preventDefault();
+            this._resizing = side;
+            this._startX = e.clientX;
+            this._startW = side === 'left' ? this.leftW : this.rightW;
+            e.target.classList.add('active');
+            const handle = e.target;
+
+            const onMove = (ev) => {
+                const dx = ev.clientX - this._startX;
+                if (this._resizing === 'left') {
+                    this.leftW = Math.max(120, Math.min(500, this._startW + dx));
+                } else {
+                    this.rightW = Math.max(150, Math.min(600, this._startW - dx));
+                }
+            };
+            const onUp = () => {
+                handle.classList.remove('active');
+                this._resizing = null;
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        },
+
+        startResizeH(e, container, setter) {
+            e.preventDefault();
+            const startY = e.clientY;
+            const totalH = container.offsetHeight;
+            const handle = e.target;
+            handle.classList.add('active');
+
+            // Get current percentage from current top panel height
+            const topPanel = container.children[0];
+            const startPct = (topPanel.offsetHeight / totalH) * 100;
+
+            const onMove = (ev) => {
+                const dy = ev.clientY - startY;
+                const newPct = startPct + (dy / totalH) * 100;
+                setter(Math.max(15, Math.min(85, newPct)));
+            };
+            const onUp = () => {
+                handle.classList.remove('active');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        },
+    };
+};
+
 // Start Alpine
 window.Alpine = Alpine;
 Alpine.start();

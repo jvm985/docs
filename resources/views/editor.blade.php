@@ -148,7 +148,7 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div x-show="tab==='plots'" class="p-2">
+                                <div x-show="tab==='plots'" class="p-2" x-data="{ plotZoom: false }">
                                     <template x-if="rPlots.length === 0">
                                         <p class="py-2 text-center text-xs text-gray-400">Geen plots</p>
                                     </template>
@@ -162,7 +162,8 @@
                                                 </div>
                                                 <button @click="clearPlots(); plotIndex=0" class="text-xs text-gray-400 hover:text-red-500">Wissen</button>
                                             </div>
-                                            <img :src="rPlots[plotIndex]" class="w-full rounded border">
+                                            <div x-show="plotZoom" @click="plotZoom=false" class="fixed inset-0 z-40 bg-black/50"></div>
+                                            <img :src="rPlots[plotIndex]" class="w-full cursor-zoom-in rounded border" @click="plotZoom = !plotZoom" :class="plotZoom ? 'fixed inset-4 z-50 h-auto w-auto max-h-[90vh] max-w-[90vw] m-auto object-contain shadow-2xl cursor-zoom-out bg-white p-2 rounded-lg' : ''"
                                         </div>
                                     </template>
                                 </div>

@@ -55,11 +55,11 @@
                     </button>
                     <label title="Bestanden uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
-                        <input type="file" id="file-upload" class="hidden" multiple>
+                        <input type="file" class="hidden" multiple onchange="window._handleUpload(this)">
                     </label>
                     <label title="Map uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>
-                        <input type="file" id="folder-upload" class="hidden" webkitdirectory>
+                        <input type="file" class="hidden" webkitdirectory onchange="window._handleUpload(this)">
                     </label>
                 </div>
             </div>

@@ -145,13 +145,15 @@ class EditorApiController extends Controller
 
     public function compile(Request $request, Project $project, Node $node): JsonResponse
     {
-        $this->authorize('update', $project);
+        // Iedereen die het project mag zien, mag compileren — output gaat naar eigen map
+        $this->authorize('view', $project);
         abort_unless($node->project_id === $project->id, 404);
         abort_unless($node->isCompilable(), 422);
 
         CompileDocumentJob::dispatchSync($node, auth()->user(), $request->input('compiler', 'pdflatex'));
 
-        $log = $node->compileLogs()->latest()->first();
+        // Alleen de log van DEZE user ophalen
+        $log = $node->compileLogs()->where('user_id', auth()->id())->latest()->first();
 
         return response()->json([
             'status' => $log?->status,
@@ -162,7 +164,8 @@ class EditorApiController extends Controller
 
     public function executeR(Request $request, Project $project, Node $node): JsonResponse
     {
-        $this->authorize('update', $project);
+        // Iedereen die het project mag zien, mag R runnen — sessie is per user
+        $this->authorize('view', $project);
         abort_unless($node->project_id === $project->id, 404);
         abort_unless($node->isExecutable(), 422);
 
@@ -186,7 +189,8 @@ class EditorApiController extends Controller
         $this->authorize('view', $project);
         abort_unless($node->project_id === $project->id, 404);
 
-        $log = $node->compileLogs()->latest()->first();
+        // Alleen de log van DEZE user
+        $log = $node->compileLogs()->where('user_id', auth()->id())->latest()->first();
 
         return response()->json([
             'status' => $log?->status,

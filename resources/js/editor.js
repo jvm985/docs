@@ -75,10 +75,6 @@ window.editorApp = function (projectId) {
                 if (node) this.openFile(node);
             }
 
-            // Upload listeners
-            const self = this;
-            document.getElementById('file-upload')?.addEventListener('change', function () { self.uploadFiles(this); });
-            document.getElementById('folder-upload')?.addEventListener('change', function () { self.uploadFiles(this); });
         },
 
         _sortNodes(list) {
@@ -463,6 +459,28 @@ window.resizablePanels = function () {
             document.addEventListener('mouseup', onUp);
         },
     };
+};
+
+// Globale upload handler (buiten Alpine om async/proxy problemen te vermijden)
+window._handleUpload = async function (input) {
+    const files = Array.from(input.files);
+    if (!files.length) return;
+
+    const projectId = window.location.pathname.split('/')[2];
+    const fileData = [];
+    for (const file of files) {
+        const path = file.webkitRelativePath || file.name;
+        const content = await file.text();
+        fileData.push({ name: file.name, path, content });
+    }
+
+    await api(`/api/editor/${projectId}/upload`, {
+        method: 'POST',
+        body: JSON.stringify({ files: fileData }),
+    });
+
+    input.value = '';
+    window.location.reload();
 };
 
 // Start Alpine

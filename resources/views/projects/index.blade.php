@@ -98,7 +98,7 @@
                         <tr>
                             <th class="px-4 py-3">Naam</th>
                             <th class="px-4 py-3">Eigenaar</th>
-                            <th class="px-4 py-3">Rechten</th>
+                            <th class="px-4 py-3">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y">
@@ -109,13 +109,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-gray-500">{{ $project->user->name }}</td>
                                 <td class="px-4 py-3">
-                                    @php
-                                        $share = $project->shares->where('user_id', auth()->id())->first()
-                                            ?? $project->shares->where('is_public', true)->first();
-                                    @endphp
-                                    <span class="text-xs {{ $share?->permission === 'write' ? 'text-green-600' : 'text-gray-500' }}">
-                                        {{ $share?->permission === 'write' ? 'Lezen & schrijven' : 'Alleen lezen' }}
-                                    </span>
+                                    <span class="text-xs text-gray-500">Alleen lezen</span>
                                 </td>
                             </tr>
                         @endforeach
@@ -130,29 +124,19 @@
         <dialog id="share-{{ $project->id }}" class="w-full max-w-md rounded-xl p-0 shadow-2xl backdrop:bg-black/50">
             <form method="POST" action="{{ route('projects.share', $project) }}" class="p-6">
                 @csrf
+                <input type="hidden" name="permission" value="read">
                 <h3 class="mb-4 text-lg font-bold">{{ $project->name }} delen</h3>
+                <p class="mb-4 text-xs text-gray-500">Gedeelde projecten zijn altijd alleen-lezen. Anderen kunnen bestanden kopiëren naar hun eigen projecten.</p>
 
                 <label class="mb-3 flex items-center gap-2">
                     <input type="checkbox" name="is_public" value="1" {{ $project->shares->where('is_public', true)->count() ? 'checked' : '' }}
-                           onchange="this.form.querySelector('.public-opts').style.display = this.checked ? '' : 'none'; this.form.querySelector('.private-opts').style.display = this.checked ? 'none' : '';">
+                           onchange="this.form.querySelector('.private-opts').style.display = this.checked ? 'none' : '';">
                     <span class="text-sm">Deel met iedereen</span>
                 </label>
-
-                <div class="public-opts mb-4" style="{{ $project->shares->where('is_public', true)->count() ? '' : 'display:none' }}">
-                    <label class="text-xs text-gray-500">Rechten</label>
-                    <select name="permission" class="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm">
-                        <option value="read" {{ $project->shares->where('is_public', true)->first()?->permission === 'read' ? 'selected' : '' }}>Alleen lezen</option>
-                        <option value="write" {{ $project->shares->where('is_public', true)->first()?->permission === 'write' ? 'selected' : '' }}>Lezen en schrijven</option>
-                    </select>
-                </div>
 
                 <div class="private-opts mb-4" style="{{ $project->shares->where('is_public', true)->count() ? 'display:none' : '' }}">
                     <label class="text-xs text-gray-500">E-mailadressen (één per regel)</label>
                     <textarea name="emails" rows="3" class="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm" placeholder="naam@voorbeeld.be">{{ $project->shares->whereNotNull('user_id')->map(fn($s) => $s->user?->email)->filter()->implode("\n") }}</textarea>
-                    <select name="permission" class="mt-2 w-full rounded border border-gray-300 px-3 py-1.5 text-sm">
-                        <option value="read">Alleen lezen</option>
-                        <option value="write">Lezen en schrijven</option>
-                    </select>
                 </div>
 
                 <div class="flex justify-end gap-2">

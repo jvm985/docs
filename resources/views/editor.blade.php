@@ -13,16 +13,19 @@
         .resize-handle-h:hover, .resize-handle-h.active { background: #f59e0b; }
     </style>
 </head>
-<body class="h-full bg-gray-100 text-gray-900" x-data="editorApp({{ $project->id }})">
+<body class="h-full bg-gray-100 text-gray-900" x-data="editorApp({{ $project->id }}, {{ $project->user_id === auth()->id() ? 'true' : 'false' }})">
 
     {{-- Top bar --}}
     <header class="flex h-10 items-center justify-between border-b bg-white px-4">
         <div class="flex items-center gap-3">
-            <a href="/admin/projects" class="text-sm text-gray-500 hover:text-gray-800">&larr; Projecten</a>
+            <a href="/projects" class="text-sm text-gray-500 hover:text-gray-800">&larr; Projecten</a>
             <span class="text-sm font-semibold" x-text="projectName"></span>
+            <template x-if="!isOwner">
+                <span class="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500">Alleen lezen</span>
+            </template>
         </div>
         <div class="flex items-center gap-2">
-            <template x-if="activeNode && isCompilable(activeNode.name)">
+            <template x-if="isOwner && activeNode && isCompilable(activeNode.name)">
                 <div class="flex items-center gap-2">
                     <template x-if="activeNode.name.endsWith('.tex')">
                         <select x-model="compiler" class="rounded border border-gray-300 px-2 py-0.5 text-xs">
@@ -34,7 +37,7 @@
                     <button @click="compile()" :disabled="compiling" class="rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50" x-text="compiling ? 'Bezig...' : 'Compileren'"></button>
                 </div>
             </template>
-            <template x-if="activeNode && isExecutable(activeNode.name)">
+            <template x-if="isOwner && activeNode && isExecutable(activeNode.name)">
                 <button @click="executeR()" class="rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600">Uitvoeren</button>
             </template>
         </div>
@@ -46,22 +49,24 @@
         <aside class="flex flex-shrink-0 flex-col border-r bg-gray-50 overflow-hidden" :style="'width:' + leftW + 'px'">
             <div class="flex items-center justify-between border-b px-3 py-2">
                 <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Bestanden</span>
-                <div class="flex gap-1">
-                    <button @click="createItem('file')" title="Nieuw bestand" class="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
-                    </button>
-                    <button @click="createItem('folder')" title="Nieuwe map" class="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
-                    </button>
-                    <label title="Bestanden uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
-                        <input type="file" class="hidden" multiple onchange="window._handleUpload(this)">
-                    </label>
-                    <label title="Map uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>
-                        <input type="file" class="hidden" webkitdirectory onchange="window._handleUpload(this)">
-                    </label>
-                </div>
+                @if($project->user_id === auth()->id())
+                    <div class="flex gap-1">
+                        <button @click="createItem('file')" title="Nieuw bestand" class="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+                        </button>
+                        <button @click="createItem('folder')" title="Nieuwe map" class="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
+                        </button>
+                        <label title="Bestanden uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+                            <input type="file" class="hidden" multiple onchange="window._handleUpload(this)">
+                        </label>
+                        <label title="Map uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>
+                            <input type="file" class="hidden" webkitdirectory onchange="window._handleUpload(this)">
+                        </label>
+                    </div>
+                @endif
             </div>
             <div class="flex-1 overflow-y-auto py-1" id="filetree"></div>
         </aside>

@@ -25,6 +25,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/projects/{project}/share', [ProjectController::class, 'share'])->name('projects.share');
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
 
+    Route::get('/api/my-projects', fn () => response()->json(auth()->user()->projects()->select('id', 'name')->get()));
+
     Route::get('/editor/{project}', fn (Project $project) => view('editor', ['project' => $project]))
         ->name('editor')
         ->can('view', 'project');
@@ -41,5 +43,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/nodes/{node}/compile', [EditorApiController::class, 'compile']);
         Route::get('/nodes/{node}/compile-log', [EditorApiController::class, 'compileLog']);
         Route::post('/nodes/{node}/execute-r', [EditorApiController::class, 'executeR']);
+        Route::post('/copy-nodes', [EditorApiController::class, 'copyNodesToProject']);
     });
 });

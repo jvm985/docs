@@ -14,16 +14,7 @@ class ProjectPolicy
 
     public function update(User $user, Project $project): bool
     {
-        if ($user->id === $project->user_id) {
-            return true;
-        }
-
-        return $project->shares()
-            ->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)->orWhere('is_public', true);
-            })
-            ->where('permission', 'write')
-            ->exists();
+        return $user->id === $project->user_id;
     }
 
     public function delete(User $user, Project $project): bool

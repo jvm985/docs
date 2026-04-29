@@ -46,9 +46,10 @@ async function api(url, options = {}) {
     return res.json();
 }
 
-window.editorApp = function (projectId) {
+window.editorApp = function (projectId, isOwner) {
     return {
         projectId,
+        isOwner,
         projectName: '',
         nodes: [],
         activeNode: null,
@@ -174,10 +175,12 @@ window.editorApp = function (projectId) {
             menu.className = 'fixed z-50 min-w-36 rounded-lg border bg-white py-1 shadow-lg text-sm';
             menu.style.cssText = `top:${y}px;left:${x}px`;
 
-            const items = [
+            const items = this.isOwner ? [
                 { label: 'Hernoemen', action: () => this._renameNode(node) },
                 { label: 'Kopiëren', action: () => this._duplicateNode(node) },
                 { label: 'Verwijderen', action: () => this._deleteNode(node), cls: 'text-red-500' },
+            ] : [
+                { label: 'Kopieer naar mijn project...', action: () => this._copyToMyProject(node) },
             ];
 
             for (const item of items) {
@@ -215,6 +218,38 @@ window.editorApp = function (projectId) {
                 body: JSON.stringify({ parent_id: newParentId }),
             });
             window.location.reload();
+        },
+
+        async _copyToMyProject(node) {
+            // Haal eigen projecten op
+            const res = await fetch('/api/my-projects', {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            const projects = await res.json();
+
+            if (projects.length === 0) {
+                alert('Je hebt nog geen eigen projecten. Maak er eerst één aan.');
+                return;
+            }
+
+            let targetId;
+            if (projects.length === 1) {
+                targetId = projects[0].id;
+            } else {
+                const names = projects.map((p, i) => `${i + 1}. ${p.name}`).join('\n');
+                const choice = prompt(`Naar welk project?\n${names}\n\nTyp het nummer:`);
+                if (!choice) return;
+                const idx = parseInt(choice) - 1;
+                if (idx < 0 || idx >= projects.length) return;
+                targetId = projects[idx].id;
+            }
+
+            await api(`/api/editor/${this.projectId}/copy-nodes`, {
+                method: 'POST',
+                body: JSON.stringify({ node_ids: [node.id], target_project_id: targetId }),
+            });
+
+            alert(`'${node.name}' gekopieerd naar je project.`);
         },
 
         async _duplicateNode(node) {

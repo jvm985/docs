@@ -145,8 +145,7 @@ class EditorApiController extends Controller
 
     public function compile(Request $request, Project $project, Node $node): JsonResponse
     {
-        // Iedereen die het project mag zien, mag compileren — output gaat naar eigen map
-        $this->authorize('view', $project);
+        $this->authorize('update', $project);
         abort_unless($node->project_id === $project->id, 404);
         abort_unless($node->isCompilable(), 422);
 
@@ -164,8 +163,7 @@ class EditorApiController extends Controller
 
     public function executeR(Request $request, Project $project, Node $node): JsonResponse
     {
-        // Iedereen die het project mag zien, mag R runnen — sessie is per user
-        $this->authorize('view', $project);
+        $this->authorize('update', $project);
         abort_unless($node->project_id === $project->id, 404);
         abort_unless($node->isExecutable(), 422);
 
@@ -197,5 +195,57 @@ class EditorApiController extends Controller
             'output' => $log?->output,
             'pdf_url' => $log?->pdf_path ? Storage::disk('public')->url($log->pdf_path) : null,
         ]);
+    }
+
+    public function copyNodesToProject(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('view', $project);
+
+        $request->validate([
+            'node_ids' => 'required|array',
+            'node_ids.*' => 'integer',
+            'target_project_id' => 'required|integer|exists:projects,id',
+        ]);
+
+        $targetProject = Project::findOrFail($request->input('target_project_id'));
+        $this->authorize('update', $targetProject);
+
+        $nodeIds = $request->input('node_ids');
+        $nodes = $project->nodes()->whereIn('id', $nodeIds)->get();
+
+        $idMap = [];
+        foreach ($nodes as $node) {
+            $newNode = $targetProject->nodes()->create([
+                'parent_id' => $node->parent_id ? ($idMap[$node->parent_id] ?? null) : null,
+                'type' => $node->type,
+                'name' => $node->name,
+                'content' => $node->content,
+            ]);
+            $idMap[$node->id] = $newNode->id;
+
+            // Als het een map is, kopieer ook alle kinderen recursief
+            if ($node->type === 'folder') {
+                $this->copyChildNodes($project, $targetProject, $node->id, $newNode->id, $idMap);
+            }
+        }
+
+        return response()->json(['copied' => count($idMap)]);
+    }
+
+    private function copyChildNodes(Project $source, Project $target, int $oldParentId, int $newParentId, array &$idMap): void
+    {
+        $children = $source->nodes()->where('parent_id', $oldParentId)->get();
+        foreach ($children as $child) {
+            $newChild = $target->nodes()->create([
+                'parent_id' => $newParentId,
+                'type' => $child->type,
+                'name' => $child->name,
+                'content' => $child->content,
+            ]);
+            $idMap[$child->id] = $newChild->id;
+            if ($child->type === 'folder') {
+                $this->copyChildNodes($source, $target, $child->id, $newChild->id, $idMap);
+            }
+        }
     }
 }

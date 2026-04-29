@@ -32,10 +32,12 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
 async function api(url, options = {}) {
     const res = await fetch(url, {
+        credentials: 'same-origin',
         headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'X-CSRF-TOKEN': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
             ...options.headers,
         },
         ...options,

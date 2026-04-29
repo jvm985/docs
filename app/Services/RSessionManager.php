@@ -51,26 +51,26 @@ png_device <- function() {
 }
 options(device = png_device)
 
-# Execute user code
-tryCatch({
-    cat("__CODE_START__\\n")
-    cat("{$escapedCode}\\n")
-    cat("__CODE_END__\\n")
-    result <- eval(parse(text = "{$escapedCode}"))
-    if (!is.null(result)) {
-        cat("__OUTPUT_START__\\n")
-        print(result)
-        cat("__OUTPUT_END__\\n")
-    }
-}, error = function(e) {
-    cat("__ERROR_START__\\n")
-    cat(conditionMessage(e), "\\n")
-    cat("__ERROR_END__\\n")
-}, warning = function(w) {
-    cat("__WARNING_START__\\n")
-    cat(conditionMessage(w), "\\n")
-    cat("__WARNING_END__\\n")
-})
+# Execute user code line by line
+.user_lines <- strsplit("{$escapedCode}", "\\n")[[1]]
+for (.line in .user_lines) {
+    .line <- trimws(.line)
+    if (nchar(.line) == 0) next
+    cat("__LINE_CODE__", .line, "\\n")
+    tryCatch({
+        .out <- capture.output(.result <- eval(parse(text = .line)))
+        if (length(.out) > 0) {
+            for (.o in .out) cat("__LINE_OUT__", .o, "\\n")
+        } else if (!is.null(.result) && class(.result) != "function") {
+            .printed <- capture.output(print(.result))
+            for (.o in .printed) cat("__LINE_OUT__", .o, "\\n")
+        }
+    }, error = function(e) {
+        cat("__LINE_ERR__", conditionMessage(e), "\\n")
+    }, warning = function(w) {
+        cat("__LINE_WARN__", conditionMessage(w), "\\n")
+    })
+}
 
 # List environment variables
 cat("__VARS_START__\\n")
@@ -92,24 +92,17 @@ RSCRIPT;
         // Parse sections from output
         $entries = [];
 
-        // Code echo
-        $entries[] = ['type' => 'code', 'text' => trim($code)];
-
-        // Output
-        if (preg_match('/__OUTPUT_START__\n(.*?)\n__OUTPUT_END__/s', $rawOutput, $m)) {
-            foreach (explode("\n", trim($m[1])) as $line) {
-                $entries[] = ['type' => 'output', 'text' => $line];
+        // Parse line-by-line output (code + response interleaved)
+        foreach (explode("\n", $rawOutput) as $line) {
+            if (preg_match('/^__LINE_CODE__ (.*)$/', $line, $m)) {
+                $entries[] = ['type' => 'code', 'text' => $m[1]];
+            } elseif (preg_match('/^__LINE_OUT__ (.*)$/', $line, $m)) {
+                $entries[] = ['type' => 'output', 'text' => $m[1]];
+            } elseif (preg_match('/^__LINE_ERR__ (.*)$/', $line, $m)) {
+                $entries[] = ['type' => 'error', 'text' => $m[1]];
+            } elseif (preg_match('/^__LINE_WARN__ (.*)$/', $line, $m)) {
+                $entries[] = ['type' => 'error', 'text' => 'Warning: '.$m[1]];
             }
-        }
-
-        // Errors
-        if (preg_match('/__ERROR_START__\n(.*?)\n__ERROR_END__/s', $rawOutput, $m)) {
-            $entries[] = ['type' => 'error', 'text' => 'Error: '.trim($m[1])];
-        }
-
-        // Warnings
-        if (preg_match('/__WARNING_START__\n(.*?)\n__WARNING_END__/s', $rawOutput, $m)) {
-            $entries[] = ['type' => 'error', 'text' => 'Warning: '.trim($m[1])];
         }
 
         // Store output in cache for Livewire to pick up via polling/events
@@ -119,7 +112,7 @@ RSCRIPT;
 
         // Variables (filter interne script-variabelen)
         $variables = [];
-        $internalVars = ['dataFile', 'plotDir', 'plot_count', 'png_device', 'result'];
+        $internalVars = ['dataFile', 'plotDir', 'plot_count', 'png_device', 'result', '.captured_output', 'v', 'val', 'vars'];
         if (preg_match('/__VARS_START__\n(.*?)\n__VARS_END__/s', $rawOutput, $m)) {
             foreach (explode("\n", trim($m[1])) as $line) {
                 if (empty(trim($line))) {

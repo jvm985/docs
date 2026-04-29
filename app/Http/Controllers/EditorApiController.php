@@ -62,6 +62,54 @@ class EditorApiController extends Controller
         return response()->json($node->only('id', 'parent_id', 'type', 'name'), 201);
     }
 
+    public function uploadNodes(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('update', $project);
+
+        $request->validate([
+            'files' => 'required|array',
+            'files.*.name' => 'required|string|max:255',
+            'files.*.path' => 'required|string|max:500',
+            'files.*.content' => 'nullable|string',
+        ]);
+
+        $createdFolders = [];
+        $nodes = [];
+
+        foreach ($request->input('files') as $file) {
+            $path = $file['path'];
+            $parts = explode('/', $path);
+            $fileName = array_pop($parts);
+            $parentId = null;
+
+            // Maak mappen aan indien nodig
+            foreach ($parts as $folderName) {
+                $key = $parentId.'/'.$folderName;
+                if (! isset($createdFolders[$key])) {
+                    $folder = $project->nodes()->firstOrCreate(
+                        ['name' => $folderName, 'parent_id' => $parentId, 'type' => 'folder']
+                    );
+                    $createdFolders[$key] = $folder->id;
+                }
+                $parentId = $createdFolders[$key];
+            }
+
+            // Maak bestand aan
+            $node = $project->nodes()->create([
+                'name' => $fileName,
+                'parent_id' => $parentId,
+                'type' => 'file',
+                'content' => $file['content'] ?? '',
+            ]);
+            $nodes[] = $node->only('id', 'parent_id', 'type', 'name');
+        }
+
+        // Geef alle nodes terug voor filetree refresh
+        return response()->json([
+            'nodes' => $project->nodes()->select('id', 'parent_id', 'type', 'name')->get(),
+        ], 201);
+    }
+
     public function deleteNode(Project $project, Node $node): JsonResponse
     {
         $this->authorize('update', $project);

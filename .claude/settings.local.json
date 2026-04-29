@@ -43,7 +43,8 @@
       "Bash(php)",
       "Bash(cat tests/Browser/Screenshots/*.png)",
       "Bash(npm uninstall:*)",
-      "Bash(composer remove:*)"
+      "Bash(composer remove:*)",
+      "Bash(/dev/null grep:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

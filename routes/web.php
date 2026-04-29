@@ -7,6 +7,7 @@ use App\Models\Project;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('projects.index'));
+Route::get('/admin/{any?}', fn () => redirect()->route('projects.index'))->where('any', '.*');
 
 // Auth
 Route::get('/login', fn () => view('auth.login'))->name('login')->middleware('guest');
@@ -31,6 +32,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/nodes/{node}', [EditorApiController::class, 'openNode']);
         Route::put('/nodes/{node}', [EditorApiController::class, 'saveNode']);
         Route::post('/nodes', [EditorApiController::class, 'createNode']);
+        Route::post('/upload', [EditorApiController::class, 'uploadNodes']);
         Route::delete('/nodes/{node}', [EditorApiController::class, 'deleteNode']);
         Route::patch('/nodes/{node}/rename', [EditorApiController::class, 'renameNode']);
         Route::patch('/nodes/{node}/move', [EditorApiController::class, 'moveNode']);

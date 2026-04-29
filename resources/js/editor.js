@@ -74,6 +74,11 @@ window.editorApp = function (projectId) {
                 const node = this.nodes.find(n => n.id === parseInt(fileId));
                 if (node) this.openFile(node);
             }
+
+            // Upload listeners
+            const self = this;
+            document.getElementById('file-upload')?.addEventListener('change', function () { self.uploadFiles(this); });
+            document.getElementById('folder-upload')?.addEventListener('change', function () { self.uploadFiles(this); });
         },
 
         _sortNodes(list) {
@@ -205,8 +210,11 @@ window.editorApp = function (projectId) {
                 method: 'POST',
                 body: JSON.stringify({ name: name.trim(), type, parent_id: null }),
             });
-            this.nodes.push(node);
-            if (type === 'file') this.openFile(node);
+            if (type === 'file') {
+                window.location.href = `/editor/${this.projectId}?file=${node.id}`;
+            } else {
+                window.location.reload();
+            }
         },
 
         compiling: false,
@@ -261,6 +269,37 @@ window.editorApp = function (projectId) {
             } catch (e) {
                 this.rOutput = [...this.rOutput, { type: 'error', text: e.message }];
             }
+        },
+
+        // Upload
+        async uploadFiles(input) {
+            const files = Array.from(input.files);
+            if (!files.length) return;
+
+            const fileData = [];
+            for (const file of files) {
+                const path = file.webkitRelativePath || file.name;
+                const content = await file.text();
+                fileData.push({ name: file.name, path, content });
+            }
+
+            const res = await api(`/api/editor/${this.projectId}/upload`, {
+                method: 'POST',
+                body: JSON.stringify({ files: fileData }),
+            });
+
+            this.nodes = res.nodes;
+            this._renderTree();
+            input.value = '';
+        },
+
+        clearOutput() {
+            this.rOutput = [];
+            this.compileOutput = '';
+        },
+
+        clearPlots() {
+            this.rPlots = [];
         },
 
         isCompilable,

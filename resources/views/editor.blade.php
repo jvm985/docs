@@ -53,6 +53,14 @@
                     <button @click="createItem('folder')" title="Nieuwe map" class="rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></svg>
                     </button>
+                    <label title="Bestanden uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+                        <input type="file" id="file-upload" class="hidden" multiple>
+                    </label>
+                    <label title="Map uploaden" class="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-700">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>
+                        <input type="file" id="folder-upload" class="hidden" webkitdirectory>
+                    </label>
                 </div>
             </div>
             <div class="flex-1 overflow-y-auto py-1" id="filetree"></div>
@@ -94,10 +102,14 @@
                 </template>
 
                 {{-- R: output + variabelen/plots --}}
-                <template x-if="rOutput.length > 0 || rPlots.length > 0">
+                <template x-if="rOutput.length > 0 || rPlots.length > 0 || rVars.length > 0">
                     <div class="flex flex-1 flex-col overflow-hidden" x-data="{ rSplitY: 60 }">
                         {{-- R console output --}}
-                        <div class="overflow-y-auto border-b p-2 font-mono text-xs" :style="'height:' + rSplitY + '%'">
+                        <div class="flex items-center justify-between border-b bg-gray-50 px-2 py-1">
+                            <span class="text-xs font-semibold text-gray-500">Console</span>
+                            <button @click="clearOutput()" class="text-xs text-gray-400 hover:text-red-500">Wissen</button>
+                        </div>
+                        <div class="overflow-y-auto p-2 font-mono text-xs" :style="'height:' + rSplitY + '%'">
                             <template x-for="(entry, i) in rOutput" :key="i">
                                 <div class="mb-0.5">
                                     <span x-show="entry.type === 'code'" class="block text-blue-600" x-text="'> ' + entry.text"></span>
@@ -111,7 +123,7 @@
                         <div class="resize-handle-h" @mousedown="startResizeH($event, $el.parentElement, v => rSplitY = v)"></div>
 
                         {{-- Tabs: variabelen / plots --}}
-                        <div class="flex flex-1 flex-col overflow-hidden" x-data="{ tab: 'vars' }">
+                        <div class="flex flex-1 flex-col overflow-hidden" x-data="{ tab: 'vars', plotIndex: 0 }">
                             <div class="flex border-b">
                                 <button @click="tab='vars'" :class="tab==='vars' ? 'border-b-2 border-amber-500 text-amber-600' : 'text-gray-500'" class="px-3 py-1 text-xs font-medium">Variabelen</button>
                                 <button @click="tab='plots'" :class="tab==='plots' ? 'border-b-2 border-amber-500 text-amber-600' : 'text-gray-500'" class="px-3 py-1 text-xs font-medium">
@@ -131,12 +143,22 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div x-show="tab==='plots'" class="space-y-2 p-2">
+                                <div x-show="tab==='plots'" class="p-2">
                                     <template x-if="rPlots.length === 0">
                                         <p class="py-2 text-center text-xs text-gray-400">Geen plots</p>
                                     </template>
-                                    <template x-for="(p, i) in rPlots" :key="i">
-                                        <img :src="p" class="w-full rounded border">
+                                    <template x-if="rPlots.length > 0">
+                                        <div>
+                                            <div class="mb-2 flex items-center justify-between">
+                                                <div class="flex items-center gap-1">
+                                                    <button @click="plotIndex = Math.max(0, plotIndex-1)" :disabled="plotIndex===0" class="rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-30">◀</button>
+                                                    <span class="text-xs text-gray-500" x-text="(plotIndex+1)+'/'+rPlots.length"></span>
+                                                    <button @click="plotIndex = Math.min(rPlots.length-1, plotIndex+1)" :disabled="plotIndex>=rPlots.length-1" class="rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-30">▶</button>
+                                                </div>
+                                                <button @click="clearPlots(); plotIndex=0" class="text-xs text-gray-400 hover:text-red-500">Wissen</button>
+                                            </div>
+                                            <img :src="rPlots[plotIndex]" class="w-full rounded border">
+                                        </div>
                                     </template>
                                 </div>
                             </div>

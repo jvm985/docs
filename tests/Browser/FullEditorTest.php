@@ -4,19 +4,21 @@ use App\Models\Node;
 use App\Models\Project;
 use App\Models\User;
 
-it('loads editor with filetree', function () {
+it('shows CodeMirror with file content when opened via URL', function () {
     $user = User::factory()->create();
     $project = Project::factory()->create(['user_id' => $user->id]);
-    Node::factory()->create(['project_id' => $project->id, 'name' => 'test.tex', 'type' => 'file']);
+    $node = Node::factory()->create([
+        'project_id' => $project->id,
+        'name' => 'main.tex',
+        'type' => 'file',
+        'content' => 'UNIQUE_TEST_CONTENT_HERE',
+    ]);
     $this->actingAs($user);
 
-    $page = visit("/editor/{$project->id}");
-
-    // Dump page source to see what's rendered
-    $source = $page->content();
-    file_put_contents('/tmp/editor-source.html', $source);
-
-    $page->assertSee('test.tex')
+    visit("/editor/{$project->id}?file={$node->id}")
+        ->assertSee('main.tex')
+        ->assertSee('Compileren')
+        ->assertSee('UNIQUE_TEST_CONTENT_HERE')
         ->assertNoJavaScriptErrors()
         ->screenshot();
 });

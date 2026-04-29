@@ -69,7 +69,7 @@
                 <span x-show="saved" class="ml-2 text-xs text-green-500">✓</span>
             </div>
             <div class="relative flex-1">
-                <div x-ref="editorContainer" class="h-full w-full"></div>
+                <div id="codemirror-container" class="h-full w-full"></div>
                 <template x-if="!activeNode">
                     <div class="absolute inset-0 flex items-center justify-center bg-gray-50">
                         <p class="text-sm text-gray-400">Open een bestand om te bewerken</p>

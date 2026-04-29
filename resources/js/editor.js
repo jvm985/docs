@@ -173,7 +173,7 @@ window.editorApp = function (projectId) {
 
             this.editorView = new EditorView({
                 state: EditorState.create({ doc: content, extensions }),
-                parent: this.$refs.editorContainer,
+                parent: document.getElementById('codemirror-container'),
             });
         },
 

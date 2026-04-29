@@ -26,6 +26,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('/nodes/{node}/rename', [EditorApiController::class, 'renameNode']);
         Route::patch('/nodes/{node}/move', [EditorApiController::class, 'moveNode']);
         Route::post('/nodes/{node}/compile', [EditorApiController::class, 'compile']);
+        Route::get('/nodes/{node}/compile-log', [EditorApiController::class, 'compileLog']);
         Route::post('/nodes/{node}/execute-r', [EditorApiController::class, 'executeR']);
     });
 });

@@ -25,7 +25,7 @@
                             <option value="lualatex">lualatex</option>
                         </select>
                     </template>
-                    <button @click="compile()" class="rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600">Compileren</button>
+                    <button @click="compile()" :disabled="compiling" class="rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 disabled:opacity-50" x-text="compiling ? 'Bezig...' : 'Compileren'"></button>
                 </div>
             </template>
             <template x-if="activeNode && isExecutable(activeNode.name)">
@@ -70,15 +70,37 @@
         </main>
 
         {{-- Rechts: Output --}}
-        <aside class="flex w-72 flex-shrink-0 flex-col border-l bg-white">
+        <aside class="flex w-80 flex-shrink-0 flex-col border-l bg-white">
             <div class="flex h-8 items-center border-b px-3">
                 <span class="text-xs font-semibold text-gray-500">Output</span>
+                <span x-show="compiling" class="ml-2 text-xs text-amber-500">Bezig...</span>
             </div>
-            <div class="flex-1 overflow-y-auto p-3">
+            <div class="flex-1 overflow-y-auto">
+                {{-- PDF viewer --}}
                 <template x-if="pdfUrl">
-                    <iframe :src="pdfUrl" class="h-full w-full rounded border"></iframe>
+                    <iframe :src="pdfUrl" class="h-full w-full"></iframe>
                 </template>
-                <template x-if="!pdfUrl && !activeNode">
+
+                {{-- R output --}}
+                <template x-if="rOutput.length > 0">
+                    <div class="p-2 font-mono text-xs">
+                        <template x-for="(entry, i) in rOutput" :key="i">
+                            <div class="mb-0.5">
+                                <span x-show="entry.type === 'code'" class="block text-blue-600" x-text="'> ' + entry.text"></span>
+                                <span x-show="entry.type === 'output'" class="block text-gray-800" x-text="entry.text"></span>
+                                <span x-show="entry.type === 'error'" class="block text-red-500" x-text="entry.text"></span>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                {{-- Compile output log --}}
+                <template x-if="compileOutput && !pdfUrl">
+                    <pre class="p-2 text-xs text-gray-600 whitespace-pre-wrap" x-text="compileOutput"></pre>
+                </template>
+
+                {{-- Geen output --}}
+                <template x-if="!pdfUrl && rOutput.length === 0 && !compileOutput">
                     <p class="py-8 text-center text-xs text-gray-400">Geen output beschikbaar</p>
                 </template>
             </div>

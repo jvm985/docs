@@ -198,13 +198,29 @@ window.editorApp = function (projectId) {
             if (type === 'file') this.openFile(node);
         },
 
+        compiling: false,
+        compileOutput: '',
+        rOutput: [],
+
         async compile() {
             if (!this.activeNode) return;
             await this._save();
-            await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}/compile`, {
-                method: 'POST',
-                body: JSON.stringify({ compiler: this.compiler }),
-            });
+            this.compiling = true;
+            this.compileOutput = '';
+            try {
+                const res = await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}/compile`, {
+                    method: 'POST',
+                    body: JSON.stringify({ compiler: this.compiler }),
+                });
+                this.compileOutput = res.output ?? '';
+                if (res.pdf_url) {
+                    this.pdfUrl = res.pdf_url + '?t=' + Date.now();
+                }
+            } catch (e) {
+                this.compileOutput = 'Compilatie mislukt: ' + e.message;
+            } finally {
+                this.compiling = false;
+            }
         },
 
         async executeR() {
@@ -217,10 +233,17 @@ window.editorApp = function (projectId) {
                 const line = this.editorView.state.doc.lineAt(sel.head);
                 code = line.text;
             }
-            await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}/execute-r`, {
-                method: 'POST',
-                body: JSON.stringify({ code }),
-            });
+            try {
+                const res = await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}/execute-r`, {
+                    method: 'POST',
+                    body: JSON.stringify({ code }),
+                });
+                if (res.output) {
+                    this.rOutput = [...this.rOutput, ...res.output];
+                }
+            } catch (e) {
+                this.rOutput = [...this.rOutput, { type: 'error', text: e.message }];
+            }
         },
 
         isCompilable,

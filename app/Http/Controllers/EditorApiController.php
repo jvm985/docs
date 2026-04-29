@@ -8,6 +8,8 @@ use App\Models\Node;
 use App\Models\Project;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class EditorApiController extends Controller
 {
@@ -98,9 +100,15 @@ class EditorApiController extends Controller
         abort_unless($node->project_id === $project->id, 404);
         abort_unless($node->isCompilable(), 422);
 
-        CompileDocumentJob::dispatch($node, auth()->user(), $request->input('compiler', 'pdflatex'));
+        CompileDocumentJob::dispatchSync($node, auth()->user(), $request->input('compiler', 'pdflatex'));
 
-        return response()->json(['compiling' => true]);
+        $log = $node->compileLogs()->latest()->first();
+
+        return response()->json([
+            'status' => $log?->status,
+            'output' => $log?->output,
+            'pdf_url' => $log?->pdf_path ? Storage::url($log->pdf_path) : null,
+        ]);
     }
 
     public function executeR(Request $request, Project $project, Node $node): JsonResponse
@@ -110,8 +118,31 @@ class EditorApiController extends Controller
         abort_unless($node->isExecutable(), 422);
 
         $request->validate(['code' => 'required|string']);
-        ExecuteRCodeJob::dispatch($node, auth()->user(), $request->input('code'));
+        ExecuteRCodeJob::dispatchSync($node, auth()->user(), $request->input('code'));
 
-        return response()->json(['executing' => true]);
+        $userId = auth()->id();
+        $rOutput = Cache::pull("r_output_{$userId}", []);
+        $rVars = Cache::get("r_vars_{$userId}");
+        $rPlots = Cache::pull("r_plots_{$userId}", []);
+
+        return response()->json([
+            'output' => $rOutput,
+            'variables' => $rVars,
+            'plots' => $rPlots,
+        ]);
+    }
+
+    public function compileLog(Project $project, Node $node): JsonResponse
+    {
+        $this->authorize('view', $project);
+        abort_unless($node->project_id === $project->id, 404);
+
+        $log = $node->compileLogs()->latest()->first();
+
+        return response()->json([
+            'status' => $log?->status,
+            'output' => $log?->output,
+            'pdf_url' => $log?->pdf_path ? Storage::url($log->pdf_path) : null,
+        ]);
     }
 }

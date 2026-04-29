@@ -55,6 +55,7 @@ class EditorApiController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:file,folder',
             'parent_id' => 'nullable|integer|exists:nodes,id',
+            'content' => 'nullable|string',
         ]);
 
         $node = $project->nodes()->create($data);

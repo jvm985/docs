@@ -92,6 +92,14 @@ window.editorApp = function (projectId) {
             const container = document.getElementById('filetree');
             if (!container) return;
             container.innerHTML = '';
+
+            // Drop naar root (buiten mappen)
+            container.addEventListener('dragover', (e) => e.preventDefault());
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const draggedId = parseInt(e.dataTransfer.getData('nodeId'));
+                if (draggedId) this._moveNode(draggedId, null);
+            });
             if (this.nodes.length === 0) {
                 container.innerHTML = '<p class="px-3 py-4 text-center text-xs text-gray-400">Geen bestanden</p>';
                 return;
@@ -101,12 +109,16 @@ window.editorApp = function (projectId) {
         },
 
         _renderNodes(parent, nodes, depth) {
+            const projectId = this.projectId;
             for (const node of nodes) {
+                const btn = document.createElement('button');
+                btn.className = 'flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-sm hover:bg-gray-200';
+                btn.style.paddingLeft = (depth * 12 + 8) + 'px';
+                btn.setAttribute('draggable', 'true');
+                btn.setAttribute('data-node-id', node.id);
+
                 if (node.type === 'folder') {
                     const wrapper = document.createElement('div');
-                    const btn = document.createElement('button');
-                    btn.className = 'flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-sm hover:bg-gray-200';
-                    btn.style.paddingLeft = (depth * 12 + 8) + 'px';
                     btn.innerHTML = `<span class="text-yellow-500">📂</span><span class="truncate text-gray-700">${this._esc(node.name)}</span>`;
                     const children = document.createElement('div');
                     const childNodes = this._sortNodes(this.nodes.filter(n => n.parent_id === node.id));
@@ -117,20 +129,37 @@ window.editorApp = function (projectId) {
                         children.style.display = open ? '' : 'none';
                         btn.querySelector('.text-yellow-500').textContent = open ? '📂' : '📁';
                     });
+
+                    // Drop target voor mappen
+                    btn.addEventListener('dragover', (e) => { e.preventDefault(); btn.classList.add('bg-amber-100'); });
+                    btn.addEventListener('dragleave', () => btn.classList.remove('bg-amber-100'));
+                    btn.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        btn.classList.remove('bg-amber-100');
+                        const draggedId = parseInt(e.dataTransfer.getData('nodeId'));
+                        if (draggedId && draggedId !== node.id) this._moveNode(draggedId, node.id);
+                    });
+
                     wrapper.append(btn, children);
                     parent.appendChild(wrapper);
                 } else {
-                    const btn = document.createElement('button');
-                    btn.className = 'flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-sm hover:bg-gray-200';
-                    btn.style.paddingLeft = (depth * 12 + 8) + 'px';
-                    btn.setAttribute('data-node-id', node.id);
                     btn.innerHTML = `<span class="text-gray-400">📄</span><span class="truncate text-gray-700">${this._esc(node.name)}</span>`;
-                    const projectId = this.projectId;
                     btn.addEventListener('click', () => {
                         window.location.href = `/editor/${projectId}?file=${node.id}`;
                     });
                     parent.appendChild(btn);
                 }
+
+                // Drag start
+                btn.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('nodeId', node.id.toString());
+                });
+
+                // Context menu (rechtermuisklik)
+                btn.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    this._showContextMenu(e.clientX, e.clientY, node);
+                });
             }
         },
 
@@ -138,6 +167,72 @@ window.editorApp = function (projectId) {
             const d = document.createElement('div');
             d.textContent = str;
             return d.innerHTML;
+        },
+
+        _showContextMenu(x, y, node) {
+            // Verwijder bestaand menu
+            document.getElementById('ctx-menu')?.remove();
+
+            const menu = document.createElement('div');
+            menu.id = 'ctx-menu';
+            menu.className = 'fixed z-50 min-w-36 rounded-lg border bg-white py-1 shadow-lg text-sm';
+            menu.style.cssText = `top:${y}px;left:${x}px`;
+
+            const items = [
+                { label: 'Hernoemen', action: () => this._renameNode(node) },
+                { label: 'Kopiëren', action: () => this._duplicateNode(node) },
+                { label: 'Verwijderen', action: () => this._deleteNode(node), cls: 'text-red-500' },
+            ];
+
+            for (const item of items) {
+                const btn = document.createElement('button');
+                btn.className = `w-full px-3 py-1.5 text-left hover:bg-gray-100 ${item.cls || ''}`;
+                btn.textContent = item.label;
+                btn.addEventListener('click', () => { menu.remove(); item.action(); });
+                menu.appendChild(btn);
+            }
+
+            document.body.appendChild(menu);
+            const close = () => { menu.remove(); document.removeEventListener('click', close); };
+            setTimeout(() => document.addEventListener('click', close), 0);
+        },
+
+        async _renameNode(node) {
+            const name = prompt('Nieuwe naam:', node.name);
+            if (!name?.trim() || name.trim() === node.name) return;
+            await api(`/api/editor/${this.projectId}/nodes/${node.id}/rename`, {
+                method: 'PATCH',
+                body: JSON.stringify({ name: name.trim() }),
+            });
+            window.location.reload();
+        },
+
+        async _deleteNode(node) {
+            if (!confirm(`'${node.name}' verwijderen?`)) return;
+            await api(`/api/editor/${this.projectId}/nodes/${node.id}`, { method: 'DELETE' });
+            window.location.reload();
+        },
+
+        async _moveNode(nodeId, newParentId) {
+            await api(`/api/editor/${this.projectId}/nodes/${nodeId}/move`, {
+                method: 'PATCH',
+                body: JSON.stringify({ parent_id: newParentId }),
+            });
+            window.location.reload();
+        },
+
+        async _duplicateNode(node) {
+            const data = await api(`/api/editor/${this.projectId}/nodes/${node.id}`);
+            await api(`/api/editor/${this.projectId}/nodes`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: node.name.replace(/(\.[^.]+)$/, ' (kopie)$1'),
+                    type: node.type,
+                    parent_id: node.parent_id,
+                    content: data.content,
+                }),
+            });
+            window.location.reload();
         },
 
         async openFile(node) {

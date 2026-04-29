@@ -1,5 +1,5 @@
 <?php
 
-test('homepage redirects to admin', function () {
-    $this->get('/')->assertRedirect('/admin');
+test('homepage redirects to projects', function () {
+    $this->get('/')->assertRedirect('/projects');
 });

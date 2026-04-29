@@ -4,8 +4,16 @@ use App\Models\User;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
-test('homepage redirects to admin', function () {
-    $this->get('/')->assertRedirect('/admin');
+test('homepage redirects to projects', function () {
+    $this->get('/')->assertRedirect('/projects');
+});
+
+test('projects page is protected from guests', function () {
+    $this->get('/projects')->assertRedirect('/login');
+});
+
+test('login page shows google button', function () {
+    $this->get('/login')->assertSee('Aanmelden met Google');
 });
 
 test('google redirect route returns redirect', function () {
@@ -22,7 +30,7 @@ test('google callback creates new user and logs in', function () {
     Socialite::shouldReceive('driver->user')->andReturn($socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect('/admin');
+        ->assertRedirect('/projects');
 
     expect(User::where('google_id', 'google-123')->exists())->toBeTrue();
     $this->assertAuthenticated();
@@ -47,11 +55,7 @@ test('google callback updates existing user', function () {
     expect($user->refresh()->name)->toBe('Updated Name');
 });
 
-test('filament admin is protected from guests', function () {
-    $this->get('/admin')->assertRedirect();
-});
-
-test('authenticated user can access admin', function () {
+test('authenticated user can access projects', function () {
     $user = User::factory()->create();
-    $this->actingAs($user)->get('/admin')->assertSuccessful();
+    $this->actingAs($user)->get('/projects')->assertSuccessful();
 });

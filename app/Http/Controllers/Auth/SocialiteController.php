@@ -23,7 +23,7 @@ class SocialiteController extends Controller
         } catch (\Throwable $e) {
             Log::error('Google OAuth callback failed', ['error' => $e->getMessage(), 'class' => get_class($e)]);
 
-            return redirect()->route('filament.admin.auth.login');
+            return redirect()->route('login');
         }
 
         $user = User::where('google_id', $googleUser->getId())
@@ -49,6 +49,6 @@ class SocialiteController extends Controller
         Auth::login($user, remember: true);
         Log::info('User logged in via Google', ['user_id' => $user->id, 'email' => $user->email]);
 
-        return redirect()->intended('/admin');
+        return redirect()->intended('/projects');
     }
 }

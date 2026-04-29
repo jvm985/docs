@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
         $middleware->validateCsrfTokens(except: ['api/editor/*']);
-        $middleware->redirectGuestsTo('/admin/login');
+        $middleware->redirectGuestsTo('/login');
         $middleware->append(NoCacheHtml::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

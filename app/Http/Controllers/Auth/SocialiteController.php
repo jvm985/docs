@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
-use Laravel\Socialite\Two\InvalidStateException;
 
 class SocialiteController extends Controller
 {
@@ -20,9 +20,10 @@ class SocialiteController extends Controller
     {
         try {
             $googleUser = Socialite::driver('google')->user();
-        } catch (InvalidStateException) {
-            return redirect()->route('filament.admin.auth.login')
-                ->withErrors(['email' => 'Google login mislukt. Probeer opnieuw.']);
+        } catch (\Throwable $e) {
+            Log::error('Google OAuth callback failed', ['error' => $e->getMessage(), 'class' => get_class($e)]);
+
+            return redirect()->route('filament.admin.auth.login');
         }
 
         $user = User::updateOrCreate(
@@ -35,6 +36,7 @@ class SocialiteController extends Controller
         );
 
         Auth::login($user, remember: true);
+        Log::info('User logged in via Google', ['user_id' => $user->id, 'email' => $user->email]);
 
         return redirect()->intended('/admin');
     }

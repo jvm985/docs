@@ -135,6 +135,8 @@ window.editorApp = function (projectId) {
             const data = await api(`/api/editor/${this.projectId}/nodes/${node.id}`);
             this.activeNode = data;
             this.pdfUrl = null;
+            this.compileOutput = '';
+            this.rOutput = [];
             this._initEditor(data.content ?? '', data.name);
         },
 

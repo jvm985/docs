@@ -26,14 +26,25 @@ class SocialiteController extends Controller
             return redirect()->route('filament.admin.auth.login');
         }
 
-        $user = User::updateOrCreate(
-            ['google_id' => $googleUser->getId()],
-            [
+        $user = User::where('google_id', $googleUser->getId())
+            ->orWhere('email', $googleUser->getEmail())
+            ->first();
+
+        if ($user) {
+            $user->update([
+                'google_id' => $googleUser->getId(),
                 'name' => $googleUser->getName(),
                 'email' => $googleUser->getEmail(),
                 'avatar' => $googleUser->getAvatar(),
-            ]
-        );
+            ]);
+        } else {
+            $user = User::create([
+                'google_id' => $googleUser->getId(),
+                'name' => $googleUser->getName(),
+                'email' => $googleUser->getEmail(),
+                'avatar' => $googleUser->getAvatar(),
+            ]);
+        }
 
         Auth::login($user, remember: true);
         Log::info('User logged in via Google', ['user_id' => $user->id, 'email' => $user->email]);

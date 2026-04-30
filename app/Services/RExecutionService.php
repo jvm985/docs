@@ -94,62 +94,59 @@ class RExecutionService
         $varsOut = $this->rString(dirname($workspaceFile).'/vars.json');
 
         return <<<R
-            # Load previous workspace if it exists
-            if (file.exists($ws)) {
-                tryCatch(load($ws, envir = .GlobalEnv), error = function(e) {})
-            }
-
-            # Plot device
-            options(device = function(...) png(filename = file.path($plots, sprintf("plot-%03d.png", length(list.files($plots, pattern = "\\\\.png$")) + 1)), width = 800, height = 600))
-
-            cat("__BEGIN_R__\\n")
-            tryCatch({
-                src <- readLines($code, warn = FALSE)
-                expr <- parse(text = paste(src, collapse = "\\n"))
-                for (i in seq_along(expr)) {
-                    e <- expr[[i]]
-                    cat("__LINE__", deparse(e, width.cutoff = 500L)[1], "\\n", sep = "")
-                    val <- withVisible(eval(e, envir = .GlobalEnv))
-                    if (val\$visible) {
-                        capture.output(print(val\$value))
-                        print(val\$value)
-                    }
+            local({
+                if (file.exists($ws)) {
+                    tryCatch(load($ws, envir = .GlobalEnv), error = function(e) {})
                 }
-            }, error = function(e) {
-                cat("__ERROR__", conditionMessage(e), "\\n", sep = "")
+
+                options(device = function(...) png(
+                    filename = file.path($plots, sprintf("plot-%03d.png",
+                        length(list.files($plots, pattern = "\\\\.png\$")) + 1)),
+                    width = 800, height = 600))
+
+                cat("__BEGIN_R__\\n")
+                tryCatch({
+                    src <- readLines($code, warn = FALSE)
+                    expr <- parse(text = paste(src, collapse = "\\n"))
+                    for (i in seq_along(expr)) {
+                        e <- expr[[i]]
+                        cat("__LINE__", deparse(e, width.cutoff = 500L)[1], "\\n", sep = "")
+                        val <- withVisible(eval(e, envir = .GlobalEnv))
+                        if (val\$visible) {
+                            print(val\$value)
+                        }
+                    }
+                }, error = function(e) {
+                    cat("__ERROR__", conditionMessage(e), "\\n", sep = "")
+                })
+                cat("__END_R__\\n")
+
+                while (length(dev.list()) > 0) tryCatch(dev.off(), error = function(e) {})
+
+                save.image($ws)
+
+                vars <- ls(envir = .GlobalEnv)
+                summaries <- lapply(vars, function(name) {
+                    v <- tryCatch(get(name, envir = .GlobalEnv), error = function(e) NULL)
+                    cls <- tryCatch(class(v)[1], error = function(e) "unknown")
+                    preview <- tryCatch({
+                        s <- capture.output(str(v, max.level = 1, vec.len = 4))[1]
+                        if (is.null(s)) "" else substr(s, 1, 80)
+                    }, error = function(e) "")
+                    list(name = name, class = cls, preview = preview)
+                })
+                if (requireNamespace("jsonlite", quietly = TRUE)) {
+                    writeLines(jsonlite::toJSON(summaries, auto_unbox = TRUE), $varsOut)
+                } else {
+                    lines <- vapply(summaries, function(s) {
+                        sprintf('{"name":"%s","class":"%s","preview":"%s"}',
+                            gsub('"', '\\\\"', s\$name),
+                            gsub('"', '\\\\"', s\$class),
+                            gsub('"', '\\\\"', s\$preview))
+                    }, character(1))
+                    writeLines(paste0('[', paste(lines, collapse = ','), ']'), $varsOut)
+                }
             })
-            cat("__END_R__\\n")
-
-            # Close any open graphics devices to flush plots
-            while (length(dev.list()) > 0) tryCatch(dev.off(), error = function(e) {})
-
-            # Save workspace
-            save.image($ws)
-
-            # Export variable summary
-            vars <- ls(envir = .GlobalEnv)
-            summaries <- lapply(vars, function(name) {
-                v <- tryCatch(get(name, envir = .GlobalEnv), error = function(e) NULL)
-                cls <- tryCatch(class(v)[1], error = function(e) "unknown")
-                preview <- tryCatch({
-                    s <- capture.output(str(v, max.level = 1, vec.len = 4))[1]
-                    if (is.null(s)) "" else substr(s, 1, 80)
-                }, error = function(e) "")
-                list(name = name, class = cls, preview = preview)
-            })
-            jsonlite_ok <- requireNamespace("jsonlite", quietly = TRUE)
-            if (jsonlite_ok) {
-                writeLines(jsonlite::toJSON(summaries, auto_unbox = TRUE), $varsOut)
-            } else {
-                # Manual fallback: write a simple JSON array
-                lines <- vapply(summaries, function(s) {
-                    sprintf('{"name":"%s","class":"%s","preview":"%s"}',
-                        gsub('"', '\\\\"', s\$name),
-                        gsub('"', '\\\\"', s\$class),
-                        gsub('"', '\\\\"', s\$preview))
-                }, character(1))
-                writeLines(paste0('[', paste(lines, collapse = ','), ']'), $varsOut)
-            }
             R;
     }
 

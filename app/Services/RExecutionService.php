@@ -29,7 +29,17 @@ class RExecutionService
 
         $cwd = $this->files->basePath($project);
 
-        $process = new Process(['Rscript', '--vanilla', $wrapperFile], $cwd, null, null, 60);
+        $env = [
+            'HOME' => $sessionDir,
+            'XDG_CACHE_HOME' => $sessionDir.'/.cache',
+            'XDG_CONFIG_HOME' => $sessionDir.'/.config',
+            'TMPDIR' => sys_get_temp_dir(),
+            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+        ];
+        $this->ensureDir($env['XDG_CACHE_HOME']);
+        $this->ensureDir($env['XDG_CONFIG_HOME']);
+
+        $process = new Process(['Rscript', '--vanilla', $wrapperFile], $cwd, $env, null, 60);
         try {
             $process->run();
         } catch (\Throwable $e) {
@@ -102,7 +112,7 @@ class RExecutionService
                 options(device = function(...) png(
                     filename = file.path($plots, sprintf("plot-%03d.png",
                         length(list.files($plots, pattern = "\\\\.png\$")) + 1)),
-                    width = 800, height = 600))
+                    width = 1600, height = 1200, res = 150))
 
                 cat("__BEGIN_R__\\n")
                 tryCatch({

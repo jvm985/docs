@@ -502,17 +502,30 @@ window._handleUpload = async function (input) {
     if (!files.length) return;
 
     const projectId = window.location.pathname.split('/')[2];
+    const binaryExts = /\.(png|jpg|jpeg|gif|bmp|pdf|zip|gz|tar|docx|xlsx|pptx|ico|svg|webp|mp3|mp4|wav)$/i;
     const fileData = [];
+
     for (const file of files) {
         const path = file.webkitRelativePath || file.name;
-        const content = await file.text();
+        let content = '';
+        try {
+            if (!binaryExts.test(file.name)) {
+                content = await file.text();
+            }
+        } catch (e) {
+            // Skip bestanden die niet als tekst gelezen kunnen worden
+        }
         fileData.push({ name: file.name, path, content });
     }
 
-    await api(`/api/editor/${projectId}/upload`, {
-        method: 'POST',
-        body: JSON.stringify({ files: fileData }),
-    });
+    try {
+        await api(`/api/editor/${projectId}/upload`, {
+            method: 'POST',
+            body: JSON.stringify({ files: fileData }),
+        });
+    } catch (e) {
+        alert('Upload mislukt: ' + e.message);
+    }
 
     input.value = '';
     window.location.reload();

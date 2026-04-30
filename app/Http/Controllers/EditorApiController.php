@@ -69,22 +69,26 @@ class EditorApiController extends Controller
 
         $request->validate([
             'files' => 'required|array',
-            'files.*.name' => 'required|string|max:255',
-            'files.*.path' => 'required|string|max:500',
-            'files.*.content' => 'nullable|string',
+            'files.*' => 'file|max:10240',
+            'paths' => 'required|array',
+            'paths.*' => 'string|max:500',
         ]);
 
+        $uploadedFiles = $request->file('files');
+        $paths = $request->input('paths');
         $createdFolders = [];
-        $nodes = [];
 
-        foreach ($request->input('files') as $file) {
-            $path = $file['path'];
+        foreach ($uploadedFiles as $i => $uploadedFile) {
+            $path = $paths[$i] ?? $uploadedFile->getClientOriginalName();
             $parts = explode('/', $path);
             $fileName = array_pop($parts);
             $parentId = null;
 
             // Maak mappen aan indien nodig
             foreach ($parts as $folderName) {
+                if (empty($folderName)) {
+                    continue;
+                }
                 $key = $parentId.'/'.$folderName;
                 if (! isset($createdFolders[$key])) {
                     $folder = $project->nodes()->firstOrCreate(
@@ -95,17 +99,22 @@ class EditorApiController extends Controller
                 $parentId = $createdFolders[$key];
             }
 
-            // Maak bestand aan
-            $node = $project->nodes()->create([
+            // Lees bestandsinhoud
+            $content = '';
+            try {
+                $content = $uploadedFile->get();
+            } catch (\Throwable) {
+                // Binaire bestanden die niet gelezen kunnen worden
+            }
+
+            $project->nodes()->create([
                 'name' => $fileName,
                 'parent_id' => $parentId,
                 'type' => 'file',
-                'content' => $file['content'] ?? '',
+                'content' => $content,
             ]);
-            $nodes[] = $node->only('id', 'parent_id', 'type', 'name');
         }
 
-        // Geef alle nodes terug voor filetree refresh
         return response()->json([
             'nodes' => $project->nodes()->select('id', 'parent_id', 'type', 'name')->get(),
         ], 201);

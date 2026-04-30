@@ -502,29 +502,24 @@ window._handleUpload = async function (input) {
     if (!files.length) return;
 
     const projectId = window.location.pathname.split('/')[2];
-    const binaryExts = /\.(png|jpg|jpeg|gif|bmp|pdf|zip|gz|tar|docx|xlsx|pptx|ico|svg|webp|mp3|mp4|wav)$/i;
-    const fileData = [];
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const formData = new FormData();
 
-    for (const file of files) {
-        const path = file.webkitRelativePath || file.name;
-        let content = '';
-        try {
-            if (!binaryExts.test(file.name)) {
-                content = await file.text();
-            }
-        } catch (e) {
-            // Skip bestanden die niet als tekst gelezen kunnen worden
-        }
-        fileData.push({ name: file.name, path, content });
-    }
+    files.forEach((file, i) => {
+        formData.append(`files[${i}]`, file);
+        formData.append(`paths[${i}]`, file.webkitRelativePath || file.name);
+    });
 
     try {
-        await api(`/api/editor/${projectId}/upload`, {
+        const res = await fetch(`/api/editor/${projectId}/upload`, {
             method: 'POST',
-            body: JSON.stringify({ files: fileData }),
+            credentials: 'same-origin',
+            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+            body: formData,
         });
+        if (!res.ok) throw new Error(`Upload mislukt (${res.status})`);
     } catch (e) {
-        alert('Upload mislukt: ' + e.message);
+        alert(e.message);
     }
 
     input.value = '';

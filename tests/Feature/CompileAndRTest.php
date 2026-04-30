@@ -29,6 +29,25 @@ test('latex compile produces a pdf when binaries are available', function () {
     expect($response->json('pdf_url'))->not->toBeNull();
 });
 
+test('latex compile resolves include from subfolder', function () {
+    if (! commandExists('pdflatex')) {
+        $this->markTestSkipped('pdflatex not installed');
+    }
+
+    $this->files->create($this->project, 'sub', 'folder');
+    $this->files->create($this->project, 'sub/chapter.tex', 'file', "Hello from chapter.\n");
+    $this->files->create($this->project, 'main.tex', 'file', "\\documentclass{article}\n\\begin{document}\\include{sub/chapter}\n\\end{document}\n");
+
+    $response = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/compile", [
+            'path' => 'main.tex',
+            'compiler' => 'pdflatex',
+        ])
+        ->assertOk();
+
+    expect($response->json('status'))->toBe('success');
+});
+
 test('typst compile produces a pdf when binaries are available', function () {
     if (! commandExists('typst')) {
         $this->markTestSkipped('typst not installed');

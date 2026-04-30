@@ -65,6 +65,11 @@ class CompileService
             throw new RuntimeException('Unsupported compiler.');
         }
         $sourceAbs = $sourceDir.'/'.$sourceRel;
+
+        // Mirror the project's subdirectory structure inside the output dir so
+        // \include{sub/file} can write its .aux next to the source file.
+        $this->mirrorTreeDirs($sourceDir, $outputDir);
+
         $jobname = 'output';
         $args = [
             $compiler,
@@ -74,17 +79,15 @@ class CompileService
             '-jobname='.$jobname,
             $sourceAbs,
         ];
-        $process = $this->run($args, dirname($sourceAbs), 90);
+        // Run from the source's own directory so relative \input/\include resolve.
+        $cwd = dirname($sourceAbs);
+        $process = $this->run($args, $cwd, 90);
         $log = $process->getOutput()."\n".$process->getErrorOutput();
-        // run twice for refs/toc if first run succeeded
         if ($process->isSuccessful()) {
-            $process2 = $this->run($args, dirname($sourceAbs), 90);
+            $process2 = $this->run($args, $cwd, 90);
             $log .= "\n".$process2->getOutput()."\n".$process2->getErrorOutput();
         }
         $pdf = $outputDir.'/'.$jobname.'.pdf';
-        if (is_file($pdf) && $jobname !== 'output') {
-            @rename($pdf, $outputDir.'/output.pdf');
-        }
         $finalPdf = $outputDir.'/output.pdf';
         $status = is_file($finalPdf) ? 'success' : 'failed';
         $this->writeLog($outputDir, $log);
@@ -95,6 +98,30 @@ class CompileService
             'has_pdf' => is_file($finalPdf),
             'compiler' => $compiler,
         ];
+    }
+
+    private function mirrorTreeDirs(string $sourceDir, string $outputDir): void
+    {
+        if (! is_dir($sourceDir)) {
+            return;
+        }
+        $iter = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($sourceDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+        foreach ($iter as $entry) {
+            if (! $entry->isDir()) {
+                continue;
+            }
+            $rel = ltrim(substr($entry->getPathname(), strlen($sourceDir)), '/');
+            if ($rel === '') {
+                continue;
+            }
+            $target = $outputDir.'/'.$rel;
+            if (! is_dir($target)) {
+                @mkdir($target, 0775, true);
+            }
+        }
     }
 
     private function compileMarkdown(string $sourceDir, string $sourceRel, string $outputDir): array

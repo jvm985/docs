@@ -6,7 +6,8 @@ cp -r /var/www/html/public-image/* /var/www/html/public/ 2>/dev/null || true
 
 # Make storage and public writable for www-data
 chown -R www-data:www-data /var/www/html/storage /var/www/html/public
-chmod -R 775 /var/www/html/storage
+find /var/www/html/storage -type d -exec chmod 775 {} +
+find /var/www/html/storage -type f -exec chmod 664 {} +
 
 # SQLite database lives in the storage volume (so it survives image rebuilds)
 DB_DIR=/var/www/html/storage/app/database

@@ -4,99 +4,105 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\User;
+use App\Services\FileService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class ProjectController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $projects = auth()->user()->projects()
-            ->withMax('nodes', 'updated_at')
-            ->with('shares')
-            ->latest()
+        $user = $request->user();
+        $own = $user->projects()->with('users')->orderBy('name')->get();
+        $sharedWithMe = $user->sharedProjects()->with('owner')->orderBy('name')->get();
+        $publicProjects = Project::query()
+            ->whereNotNull('public_permission')
+            ->where('user_id', '!=', $user->id)
+            ->whereDoesntHave('users', fn ($q) => $q->where('users.id', $user->id))
+            ->with('owner')
+            ->orderBy('name')
             ->get();
 
-        // Projecten gedeeld met mij
-        $sharedProjects = Project::whereHas('shares', function ($q) {
-            $q->where('user_id', auth()->id())->orWhere('is_public', true);
-        })->where('user_id', '!=', auth()->id())
-            ->with('user', 'shares')
-            ->get();
-
-        return view('projects.index', compact('projects', 'sharedProjects'));
+        return view('projects.index', [
+            'ownProjects' => $own,
+            'sharedProjects' => $sharedWithMe,
+            'publicProjects' => $publicProjects,
+        ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, FileService $files)
     {
-        $request->validate(['name' => 'required|string|max:255']);
-
-        $project = auth()->user()->projects()->create($request->only('name'));
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+        ]);
+        $project = $request->user()->projects()->create([
+            'name' => $data['name'],
+        ]);
+        $files->basePath($project);
 
         return redirect()->route('editor', $project);
     }
 
-    public function duplicate(Project $project)
+    public function destroy(Request $request, Project $project)
     {
-        $this->authorize('view', $project);
-
-        $copy = auth()->user()->projects()->create([
-            'name' => $project->name.' (kopie)',
-        ]);
-
-        // Kopieer alle nodes met mapstructuur
-        $idMap = [];
-        foreach ($project->nodes()->orderBy('parent_id')->get() as $node) {
-            $newNode = $copy->nodes()->create([
-                'parent_id' => $node->parent_id ? ($idMap[$node->parent_id] ?? null) : null,
-                'type' => $node->type,
-                'name' => $node->name,
-                'content' => $node->content,
-            ]);
-            $idMap[$node->id] = $newNode->id;
+        Gate::authorize('delete', $project);
+        $base = storage_path('app/private/projects/'.$project->id);
+        $project->delete();
+        if (is_dir($base)) {
+            $this->rrmdir($base);
         }
 
-        return redirect()->route('projects.index')->with('success', "Project '{$project->name}' gekopieerd.");
+        return redirect()->route('projects.index');
+    }
+
+    public function duplicate(Request $request, Project $project, FileService $files)
+    {
+        Gate::authorize('duplicate', $project);
+        $copy = $request->user()->projects()->create([
+            'name' => $project->name.' (kopie)',
+        ]);
+        $files->copyAll($project, $copy);
+
+        return redirect()->route('editor', $copy);
     }
 
     public function share(Request $request, Project $project)
     {
-        $this->authorize('update', $project);
-
-        $request->validate([
-            'is_public' => 'boolean',
-            'permission' => 'required_if:is_public,true|in:read,write',
-            'emails' => 'nullable|string',
+        Gate::authorize('share', $project);
+        $data = $request->validate([
+            'public_permission' => ['nullable', 'in:read,write'],
+            'users' => ['array'],
+            'users.*.email' => ['required', 'email'],
+            'users.*.permission' => ['required', 'in:read,write'],
         ]);
 
-        // Verwijder bestaande shares
-        $project->shares()->delete();
-
-        if ($request->boolean('is_public')) {
-            $project->shares()->create([
-                'is_public' => true,
-                'permission' => $request->input('permission', 'read'),
-            ]);
-        } else {
-            $emails = array_filter(array_map('trim', explode("\n", $request->input('emails', ''))));
-            foreach ($emails as $email) {
-                $user = User::where('email', $email)->first();
-                if ($user && $user->id !== auth()->id()) {
-                    $project->shares()->create([
-                        'user_id' => $user->id,
-                        'permission' => $request->input('permission', 'read'),
-                    ]);
+        DB::transaction(function () use ($data, $project) {
+            $project->update(['public_permission' => $data['public_permission'] ?? null]);
+            $sync = [];
+            foreach ($data['users'] ?? [] as $entry) {
+                $user = User::firstWhere('email', $entry['email']);
+                if (! $user || $user->id === $project->user_id) {
+                    continue;
                 }
+                $sync[$user->id] = ['permission' => $entry['permission']];
             }
-        }
-
-        return redirect()->route('projects.index')->with('success', 'Deelinstellingen opgeslagen.');
-    }
-
-    public function destroy(Project $project)
-    {
-        $this->authorize('delete', $project);
-        $project->delete();
+            $project->users()->sync($sync);
+        });
 
         return redirect()->route('projects.index');
+    }
+
+    private function rrmdir(string $dir): void
+    {
+        $items = scandir($dir) ?: [];
+        foreach ($items as $name) {
+            if ($name === '.' || $name === '..') {
+                continue;
+            }
+            $full = $dir.'/'.$name;
+            is_dir($full) ? $this->rrmdir($full) : @unlink($full);
+        }
+        @rmdir($dir);
     }
 }

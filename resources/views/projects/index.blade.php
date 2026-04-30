@@ -4,147 +4,168 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Projecten — Docs</title>
-    @vite('resources/css/app.css')
+    <title>Mijn projecten — Docs</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>[x-cloak]{display:none!important}</style>
 </head>
-<body class="h-full bg-gray-50 text-gray-900">
-    <header class="flex h-12 items-center justify-between border-b bg-white px-6">
-        <span class="text-lg font-bold">Docs</span>
-        <div class="flex items-center gap-4">
-            <span class="text-sm text-gray-500">{{ auth()->user()->name }}</span>
+<body class="min-h-full bg-gray-50 text-gray-900">
+
+<div x-data="projectsPage()" class="mx-auto max-w-5xl px-6 py-8">
+
+    <header class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold">Projecten</h1>
+            <p class="text-sm text-gray-500">Welkom, {{ auth()->user()->name }}</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button type="button" @click="showCreate = true" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">+ Nieuw project</button>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" class="text-sm text-gray-400 hover:text-gray-700">Uitloggen</button>
+                <button class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">Uitloggen</button>
             </form>
         </div>
     </header>
 
-    <main class="mx-auto max-w-4xl px-4 py-8">
-        @if(session('success'))
-            <div class="mb-4 rounded bg-green-50 p-3 text-sm text-green-700">{{ session('success') }}</div>
-        @endif
-        @if($errors->any())
-            <div class="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{{ $errors->first() }}</div>
-        @endif
+    {{-- Create dialog --}}
+    <div x-show="showCreate" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
+        <form method="POST" action="{{ route('projects.store') }}" class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            @csrf
+            <h2 class="mb-3 text-lg font-semibold">Nieuw project</h2>
+            <input type="text" name="name" required maxlength="120" autofocus class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" data-testid="new-project-name">
+            <div class="mt-4 flex justify-end gap-2">
+                <button type="button" @click="showCreate = false" class="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100">Annuleer</button>
+                <button class="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Aanmaken</button>
+            </div>
+        </form>
+    </div>
 
-        {{-- Mijn projecten --}}
-        <div class="mb-6 flex items-center justify-between">
-            <h1 class="text-2xl font-bold">Mijn projecten</h1>
-            <form method="POST" action="{{ route('projects.store') }}" class="flex gap-2">
-                @csrf
-                <input name="name" required placeholder="Projectnaam" class="rounded border border-gray-300 px-3 py-1.5 text-sm focus:border-amber-500 focus:outline-none">
-                <button type="submit" class="rounded bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Nieuw project</button>
-            </form>
-        </div>
-
-        @if($projects->isEmpty())
-            <p class="py-12 text-center text-gray-400">Geen projecten. Maak je eerste project aan.</p>
+    {{-- Eigen projecten --}}
+    <section class="mb-8">
+        <h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500">Mijn projecten</h2>
+        @if($ownProjects->isEmpty())
+            <p class="text-sm text-gray-400" data-testid="no-own-projects">Nog geen projecten. Klik op «Nieuw project» om te beginnen.</p>
         @else
-            <div class="mb-10 overflow-hidden rounded-lg border bg-white">
-                <table class="w-full text-sm">
-                    <thead class="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
-                        <tr>
-                            <th class="px-4 py-3">Naam</th>
-                            <th class="px-4 py-3">Gedeeld</th>
-                            <th class="px-4 py-3">Laatste wijziging</th>
-                            <th class="px-4 py-3 text-right">Acties</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                        @foreach($projects as $project)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3">
-                                    <a href="{{ route('editor', $project) }}" class="font-medium text-amber-600 hover:underline">{{ $project->name }}</a>
-                                </td>
-                                <td class="px-4 py-3 text-gray-500">
-                                    @if($project->shares->where('is_public', true)->count())
-                                        <span class="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Publiek</span>
-                                    @elseif($project->shares->count())
-                                        <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">{{ $project->shares->count() }} gebruiker(s)</span>
-                                    @else
-                                        <span class="text-xs text-gray-400">Privé</span>
-                                    @endif
-                                </td>
-                                <td class="px-4 py-3 text-gray-500">
-                                    {{ $project->nodes_max_updated_at ? \Carbon\Carbon::parse($project->nodes_max_updated_at)->format('d/m/Y H:i') : '—' }}
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <button onclick="document.getElementById('share-{{ $project->id }}').showModal()" class="text-xs text-blue-500 hover:text-blue-700">Delen</button>
-                                        <form method="POST" action="{{ route('projects.duplicate', $project) }}" class="inline">
-                                            @csrf
-                                            <button type="submit" class="text-xs text-gray-500 hover:text-gray-700">Kopiëren</button>
-                                        </form>
-                                        <form method="POST" action="{{ route('projects.destroy', $project) }}" onsubmit="return confirm('Project verwijderen?')" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="text-xs text-red-400 hover:text-red-600">Verwijderen</button>
-                                        </form>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="own-projects">
+                @foreach($ownProjects as $project)
+                    <div class="group flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm" data-testid="project-card">
+                        <a href="{{ route('editor', $project) }}" class="text-base font-medium text-gray-900 hover:text-amber-600" data-testid="project-link">{{ $project->name }}</a>
+                        <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                            @if($project->public_permission)
+                                <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">Publiek ({{ $project->public_permission === 'write' ? 'lezen+schrijven' : 'alleen lezen' }})</span>
+                            @endif
+                            @if($project->users->count())
+                                <span class="rounded bg-sky-100 px-1.5 py-0.5 text-sky-700">Gedeeld met {{ $project->users->count() }}</span>
+                            @endif
+                        </div>
+                        <div class="mt-3 flex items-center gap-2 text-xs">
+                            <button type="button" @click="openShare({{ $project->id }})" class="text-gray-500 hover:text-amber-600">Delen</button>
+                            <form method="POST" action="{{ route('projects.duplicate', $project) }}">
+                                @csrf
+                                <button class="text-gray-500 hover:text-amber-600">Dupliceren</button>
+                            </form>
+                            <form method="POST" action="{{ route('projects.destroy', $project) }}" onsubmit="return confirm('Project verwijderen?')" class="ml-auto">
+                                @csrf @method('DELETE')
+                                <button class="text-gray-400 hover:text-red-500">Verwijder</button>
+                            </form>
+                        </div>
+
+                        {{-- Share dialog --}}
+                        <div x-show="shareOpen === {{ $project->id }}" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @keydown.escape.window="closeShare()">
+                            <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" @click.away="closeShare()">
+                                <h3 class="mb-3 text-base font-semibold">{{ $project->name }} delen</h3>
+                                <form method="POST" action="{{ route('projects.share', $project) }}" x-data='shareForm({{ $project->users->map(fn($u) => ["email" => $u->email, "permission" => $u->pivot->permission])->toJson() }}, @json($project->public_permission))' @submit="prepareSubmit()">
+                                    @csrf
+                                    <input type="hidden" name="public_permission" :value="publicPermission || ''">
+                                    <template x-for="(u, i) in users" :key="i">
+                                        <div class="mb-2 flex items-center gap-2">
+                                            <input :name="`users[${i}][email]`" x-model="u.email" type="email" placeholder="email@voorbeeld.com" class="flex-1 rounded border border-gray-300 px-2 py-1 text-sm">
+                                            <select :name="`users[${i}][permission]`" x-model="u.permission" class="rounded border border-gray-300 px-2 py-1 text-sm">
+                                                <option value="read">lezen</option>
+                                                <option value="write">lezen+schrijven</option>
+                                            </select>
+                                            <button type="button" @click="users.splice(i,1)" class="text-gray-400 hover:text-red-500">×</button>
+                                        </div>
+                                    </template>
+                                    <button type="button" @click="users.push({email:'',permission:'read'})" class="mb-4 text-xs text-amber-600 hover:underline">+ Gebruiker toevoegen</button>
+
+                                    <div class="mb-4 rounded-lg bg-gray-50 p-3">
+                                        <label class="flex cursor-pointer items-center gap-2 text-sm">
+                                            <input type="checkbox" x-model="publicEnabled" @change="if(!publicEnabled) publicPermission=''; else publicPermission='read'">
+                                            <span class="font-medium">Deel met iedereen</span>
+                                        </label>
+                                        <div x-show="publicEnabled" x-cloak class="mt-2 flex gap-3 text-sm">
+                                            <label class="flex items-center gap-1"><input type="radio" x-model="publicPermission" value="read"> alleen lezen</label>
+                                            <label class="flex items-center gap-1"><input type="radio" x-model="publicPermission" value="write"> lezen + schrijven</label>
+                                        </div>
                                     </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+
+                                    <div class="flex justify-end gap-2">
+                                        <button type="button" @click="closeShare()" class="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100">Annuleer</button>
+                                        <button class="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Bewaar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
             </div>
         @endif
+    </section>
 
-        {{-- Gedeeld met mij --}}
-        @if($sharedProjects->isNotEmpty())
-            <h2 class="mb-4 text-xl font-bold">Gedeeld met mij</h2>
-            <div class="overflow-hidden rounded-lg border bg-white">
-                <table class="w-full text-sm">
-                    <thead class="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
-                        <tr>
-                            <th class="px-4 py-3">Naam</th>
-                            <th class="px-4 py-3">Eigenaar</th>
-                            <th class="px-4 py-3">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                        @foreach($sharedProjects as $project)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3">
-                                    <a href="{{ route('editor', $project) }}" class="font-medium text-amber-600 hover:underline">{{ $project->name }}</a>
-                                </td>
-                                <td class="px-4 py-3 text-gray-500">{{ $project->user->name }}</td>
-                                <td class="px-4 py-3">
-                                    <span class="text-xs text-gray-500">Alleen lezen</span>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+    {{-- Met mij gedeelde projecten --}}
+    @if($sharedProjects->count())
+        <section class="mb-8" data-testid="shared-section">
+            <h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500">Met mij gedeeld</h2>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($sharedProjects as $project)
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <a href="{{ route('editor', $project) }}" class="text-base font-medium text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
+                        <p class="mt-1 text-xs text-gray-500">door {{ $project->owner->name }}</p>
+                        <span class="mt-2 inline-block rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-700">{{ $project->pivot->permission === 'write' ? 'lezen+schrijven' : 'alleen lezen' }}</span>
+                    </div>
+                @endforeach
             </div>
-        @endif
-    </main>
+        </section>
+    @endif
 
-    {{-- Deel-dialogen --}}
-    @foreach($projects as $project)
-        <dialog id="share-{{ $project->id }}" class="w-full max-w-md rounded-xl p-0 shadow-2xl backdrop:bg-black/50">
-            <form method="POST" action="{{ route('projects.share', $project) }}" class="p-6">
-                @csrf
-                <input type="hidden" name="permission" value="read">
-                <h3 class="mb-4 text-lg font-bold">{{ $project->name }} delen</h3>
-                <p class="mb-4 text-xs text-gray-500">Gedeelde projecten zijn altijd alleen-lezen. Anderen kunnen bestanden kopiëren naar hun eigen projecten.</p>
+    {{-- Publieke projecten --}}
+    @if($publicProjects->count())
+        <section data-testid="public-section">
+            <h2 class="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500">Publieke projecten</h2>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($publicProjects as $project)
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <a href="{{ route('editor', $project) }}" class="text-base font-medium text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
+                        <p class="mt-1 text-xs text-gray-500">door {{ $project->owner->name }}</p>
+                        <span class="mt-2 inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">{{ $project->public_permission === 'write' ? 'lezen+schrijven' : 'alleen lezen' }}</span>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+</div>
 
-                <label class="mb-3 flex items-center gap-2">
-                    <input type="checkbox" name="is_public" value="1" {{ $project->shares->where('is_public', true)->count() ? 'checked' : '' }}
-                           onchange="this.form.querySelector('.private-opts').style.display = this.checked ? 'none' : '';">
-                    <span class="text-sm">Deel met iedereen</span>
-                </label>
+<script>
+    function projectsPage() {
+        return {
+            showCreate: false,
+            shareOpen: null,
+            openShare(id) { this.shareOpen = id; },
+            closeShare() { this.shareOpen = null; },
+        };
+    }
 
-                <div class="private-opts mb-4" style="{{ $project->shares->where('is_public', true)->count() ? 'display:none' : '' }}">
-                    <label class="text-xs text-gray-500">E-mailadressen (één per regel)</label>
-                    <textarea name="emails" rows="3" class="mt-1 w-full rounded border border-gray-300 px-3 py-1.5 text-sm" placeholder="naam@voorbeeld.be">{{ $project->shares->whereNotNull('user_id')->map(fn($s) => $s->user?->email)->filter()->implode("\n") }}</textarea>
-                </div>
+    function shareForm(existing, publicPerm) {
+        return {
+            users: Array.isArray(existing) ? existing.map(u => ({...u})) : [],
+            publicPermission: publicPerm || '',
+            publicEnabled: !!publicPerm,
+            prepareSubmit() {
+                this.users = this.users.filter(u => u.email && u.email.trim() !== '');
+            },
+        };
+    }
+</script>
 
-                <div class="flex justify-end gap-2">
-                    <button type="button" onclick="this.closest('dialog').close()" class="px-4 py-1.5 text-sm text-gray-500 hover:text-gray-700">Annuleren</button>
-                    <button type="submit" class="rounded bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Opslaan</button>
-                </div>
-            </form>
-        </dialog>
-    @endforeach
 </body>
 </html>

@@ -1,531 +1,717 @@
-import Alpine from 'alpinejs';
-import { EditorView, basicSetup } from 'codemirror';
-import { EditorState } from '@codemirror/state';
-import { javascript } from '@codemirror/lang-javascript';
+import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import { EditorState, Compartment } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, foldGutter } from '@codemirror/language';
+import { searchKeymap } from '@codemirror/search';
+import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
+import { markdown } from '@codemirror/lang-markdown';
 import { json } from '@codemirror/lang-json';
+import { xml } from '@codemirror/lang-xml';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
-import { markdown } from '@codemirror/lang-markdown';
-import { xml } from '@codemirror/lang-xml';
+import { javascript } from '@codemirror/lang-javascript';
 import { php } from '@codemirror/lang-php';
 import { python } from '@codemirror/lang-python';
-import { oneDark } from '@codemirror/theme-one-dark';
 
-function getLanguage(filename) {
-    const ext = filename.split('.').pop().toLowerCase();
-    const map = {
-        js: javascript, ts: javascript, json, html, css, xml,
-        md: markdown, rmd: markdown, php, py: python,
-    };
-    return map[ext]?.() ?? [];
-}
+const csrf = () => document.querySelector('meta[name=csrf-token]')?.content || '';
 
-function isCompilable(name) {
-    return /\.(tex|md|rmd|typ)$/i.test(name);
-}
+const app = document.getElementById('app');
+const PROJECT_ID = Number(app.dataset.projectId);
+const CAN_WRITE = app.dataset.canWrite === '1';
 
-function isExecutable(name) {
-    return /\.r$/i.test(name);
-}
+const COMPILABLE = ['tex', 'md', 'rmd', 'typ'];
+const RUNNABLE = ['r'];
 
-const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+const state = {
+    tree: [],
+    expanded: new Set(),
+    activePath: null,
+    activeFile: null,
+    compiler: 'pdflatex',
+    rOutput: [],
+    rVars: [],
+    rPlots: [],
+    plotIndex: 0,
+};
 
-async function api(url, options = {}) {
-    const res = await fetch(url, {
-        credentials: 'same-origin',
+let editorView = null;
+const langCompartment = new Compartment();
+const readOnlyCompartment = new Compartment();
+let saveTimer = null;
+let currentLoadToken = 0;
+
+const langFor = (ext) => {
+    switch (ext) {
+        case 'md': case 'rmd': return markdown();
+        case 'json': return json();
+        case 'xml': return xml();
+        case 'html': case 'htm': return html();
+        case 'css': return css();
+        case 'js': case 'mjs': case 'ts': return javascript();
+        case 'php': return php();
+        case 'py': return python();
+        default: return [];
+    }
+};
+
+const api = async (method, url, body) => {
+    const opts = {
+        method,
         headers: {
-            'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-CSRF-TOKEN': csrfToken,
             'X-Requested-With': 'XMLHttpRequest',
-            ...options.headers,
+            'X-CSRF-TOKEN': csrf(),
         },
-        ...options,
-    });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    return res.json();
+        credentials: 'same-origin',
+    };
+    if (body instanceof FormData) {
+        opts.body = body;
+    } else if (body !== undefined) {
+        opts.headers['Content-Type'] = 'application/json';
+        opts.body = JSON.stringify(body);
+    }
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text.slice(0, 300)}`);
+    }
+    const ct = res.headers.get('content-type') || '';
+    return ct.includes('json') ? res.json() : res.text();
+};
+
+const apiUrl = (suffix) => `/api/projects/${PROJECT_ID}${suffix}`;
+
+const treeEl = document.getElementById('filetree');
+
+function renderTree() {
+    treeEl.innerHTML = '';
+    treeEl.appendChild(renderTreeChildren(state.tree));
+    bindRootDropZone();
 }
 
-window.editorApp = function (projectId, isOwner) {
-    return {
-        projectId,
-        isOwner,
-        projectName: '',
-        nodes: [],
-        activeNode: null,
-        editorView: null,
-        compiler: 'pdflatex',
-        saving: false,
-        saved: false,
-        pdfUrl: null,
-        rPlots: [],
-        rVars: [],
-        _saveTimeout: null,
+function renderTreeChildren(nodes) {
+    const ul = document.createElement('ul');
+    ul.className = 'pl-3';
+    for (const node of nodes) ul.appendChild(renderTreeNode(node));
+    return ul;
+}
 
-        async init() {
-            const data = await api(`/api/editor/${this.projectId}`);
-            this.projectName = data.project.name;
-            this.nodes = data.nodes;
-            this._renderTree();
+function renderTreeNode(node) {
+    const li = document.createElement('li');
+    li.className = 'mb-0.5';
 
-            // Auto-open file from URL ?file=id
-            const params = new URLSearchParams(window.location.search);
-            const fileId = params.get('file');
-            if (fileId) {
-                const node = this.nodes.find(n => n.id === parseInt(fileId));
-                if (node) this.openFile(node);
-            }
+    const row = document.createElement('div');
+    row.className = `filetree-row group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 hover:bg-gray-200 ${state.activePath === node.path ? 'bg-amber-100' : ''}`;
+    row.draggable = CAN_WRITE;
+    row.dataset.path = node.path;
+    row.dataset.type = node.type;
 
-        },
+    if (node.type === 'folder') {
+        const open = state.expanded.has(node.path);
+        const chev = document.createElement('span');
+        chev.className = 'inline-block w-3 text-gray-400';
+        chev.textContent = open ? '▾' : '▸';
+        row.append(chev, icon('folder'));
+        const label = document.createElement('span');
+        label.className = 'flex-1 truncate';
+        label.textContent = node.name;
+        row.appendChild(label);
+        row.addEventListener('click', () => toggleFolder(node.path));
+        row.addEventListener('contextmenu', (e) => showContextMenu(e, node));
+        bindDropTarget(row, node.path);
+        bindDragSource(row, node.path);
+        li.appendChild(row);
+        if (open) li.appendChild(renderTreeChildren(node.children || []));
+    } else {
+        const spacer = document.createElement('span');
+        spacer.className = 'inline-block w-3';
+        row.append(spacer, icon('file', node.extension));
+        const label = document.createElement('span');
+        label.className = 'flex-1 truncate';
+        label.textContent = node.name;
+        label.dataset.testid = 'file-label';
+        row.appendChild(label);
+        row.addEventListener('click', () => openFile(node.path));
+        row.addEventListener('contextmenu', (e) => showContextMenu(e, node));
+        bindDragSource(row, node.path);
+        li.appendChild(row);
+    }
+    return li;
+}
 
-        _sortNodes(list) {
-            return list.sort((a, b) => {
-                if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-                return a.name.localeCompare(b.name);
-            });
-        },
+function icon(type, ext) {
+    const s = document.createElement('span');
+    s.className = 'inline-block w-4 text-center text-xs';
+    if (type === 'folder') s.textContent = '📁';
+    else {
+        const map = { tex: '📄', md: '📝', r: 'R', rmd: 'R', typ: '📐', json: '{}', xml: '<>', pdf: '📕' };
+        s.textContent = map[ext] || '·';
+    }
+    return s;
+}
 
-        _renderTree() {
-            const container = document.getElementById('filetree');
-            if (!container) return;
-            container.innerHTML = '';
+function toggleFolder(path) {
+    if (state.expanded.has(path)) state.expanded.delete(path);
+    else state.expanded.add(path);
+    renderTree();
+}
 
-            // Drop naar root (buiten mappen)
-            container.addEventListener('dragover', (e) => e.preventDefault());
-            container.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const draggedId = parseInt(e.dataTransfer.getData('nodeId'));
-                if (draggedId) this._moveNode(draggedId, null);
-            });
-            if (this.nodes.length === 0) {
-                container.innerHTML = '<p class="px-3 py-4 text-center text-xs text-gray-400">Geen bestanden</p>';
-                return;
-            }
-            const roots = this._sortNodes(this.nodes.filter(n => !n.parent_id));
-            this._renderNodes(container, roots, 0);
-        },
+let dragSourcePath = null;
 
-        _renderNodes(parent, nodes, depth) {
-            const projectId = this.projectId;
-            for (const node of nodes) {
-                const btn = document.createElement('button');
-                btn.className = 'flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-sm hover:bg-gray-200';
-                btn.style.paddingLeft = (depth * 12 + 8) + 'px';
-                btn.setAttribute('draggable', 'true');
-                btn.setAttribute('data-node-id', node.id);
-
-                if (node.type === 'folder') {
-                    const wrapper = document.createElement('div');
-                    btn.innerHTML = `<span class="text-yellow-500">📂</span><span class="truncate text-gray-700">${this._esc(node.name)}</span>`;
-                    const children = document.createElement('div');
-                    const childNodes = this._sortNodes(this.nodes.filter(n => n.parent_id === node.id));
-                    this._renderNodes(children, childNodes, depth + 1);
-                    let open = true;
-                    btn.addEventListener('click', () => {
-                        open = !open;
-                        children.style.display = open ? '' : 'none';
-                        btn.querySelector('.text-yellow-500').textContent = open ? '📂' : '📁';
-                    });
-
-                    // Drop target voor mappen
-                    btn.addEventListener('dragover', (e) => { e.preventDefault(); btn.classList.add('bg-amber-100'); });
-                    btn.addEventListener('dragleave', () => btn.classList.remove('bg-amber-100'));
-                    btn.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        btn.classList.remove('bg-amber-100');
-                        const draggedId = parseInt(e.dataTransfer.getData('nodeId'));
-                        if (draggedId && draggedId !== node.id) this._moveNode(draggedId, node.id);
-                    });
-
-                    wrapper.append(btn, children);
-                    parent.appendChild(wrapper);
-                } else {
-                    btn.innerHTML = `<span class="text-gray-400">📄</span><span class="truncate text-gray-700">${this._esc(node.name)}</span>`;
-                    btn.addEventListener('click', () => {
-                        window.location.href = `/editor/${projectId}?file=${node.id}`;
-                    });
-                    parent.appendChild(btn);
-                }
-
-                // Drag start
-                btn.addEventListener('dragstart', (e) => {
-                    e.dataTransfer.setData('nodeId', node.id.toString());
-                });
-
-                // Context menu (rechtermuisklik)
-                btn.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    this._showContextMenu(e.clientX, e.clientY, node);
-                });
-            }
-        },
-
-        _esc(str) {
-            const d = document.createElement('div');
-            d.textContent = str;
-            return d.innerHTML;
-        },
-
-        _showContextMenu(x, y, node) {
-            // Verwijder bestaand menu
-            document.getElementById('ctx-menu')?.remove();
-
-            const menu = document.createElement('div');
-            menu.id = 'ctx-menu';
-            menu.className = 'fixed z-50 min-w-36 rounded-lg border bg-white py-1 shadow-lg text-sm';
-            menu.style.cssText = `top:${y}px;left:${x}px`;
-
-            const items = this.isOwner ? [
-                { label: 'Hernoemen', action: () => this._renameNode(node) },
-                { label: 'Kopiëren', action: () => this._duplicateNode(node) },
-                { label: 'Verwijderen', action: () => this._deleteNode(node), cls: 'text-red-500' },
-            ] : [
-                { label: 'Kopieer naar mijn project...', action: () => this._copyToMyProject(node) },
-            ];
-
-            for (const item of items) {
-                const btn = document.createElement('button');
-                btn.className = `w-full px-3 py-1.5 text-left hover:bg-gray-100 ${item.cls || ''}`;
-                btn.textContent = item.label;
-                btn.addEventListener('click', () => { menu.remove(); item.action(); });
-                menu.appendChild(btn);
-            }
-
-            document.body.appendChild(menu);
-            const close = () => { menu.remove(); document.removeEventListener('click', close); };
-            setTimeout(() => document.addEventListener('click', close), 0);
-        },
-
-        async _renameNode(node) {
-            const name = prompt('Nieuwe naam:', node.name);
-            if (!name?.trim() || name.trim() === node.name) return;
-            await api(`/api/editor/${this.projectId}/nodes/${node.id}/rename`, {
-                method: 'PATCH',
-                body: JSON.stringify({ name: name.trim() }),
-            });
-            window.location.reload();
-        },
-
-        async _deleteNode(node) {
-            if (!confirm(`'${node.name}' verwijderen?`)) return;
-            await api(`/api/editor/${this.projectId}/nodes/${node.id}`, { method: 'DELETE' });
-            window.location.reload();
-        },
-
-        async _moveNode(nodeId, newParentId) {
-            await api(`/api/editor/${this.projectId}/nodes/${nodeId}/move`, {
-                method: 'PATCH',
-                body: JSON.stringify({ parent_id: newParentId }),
-            });
-            window.location.reload();
-        },
-
-        async _copyToMyProject(node) {
-            // Haal eigen projecten op
-            const res = await fetch('/api/my-projects', {
-                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            const projects = await res.json();
-
-            if (projects.length === 0) {
-                alert('Je hebt nog geen eigen projecten. Maak er eerst één aan.');
-                return;
-            }
-
-            let targetId;
-            if (projects.length === 1) {
-                targetId = projects[0].id;
-            } else {
-                const names = projects.map((p, i) => `${i + 1}. ${p.name}`).join('\n');
-                const choice = prompt(`Naar welk project?\n${names}\n\nTyp het nummer:`);
-                if (!choice) return;
-                const idx = parseInt(choice) - 1;
-                if (idx < 0 || idx >= projects.length) return;
-                targetId = projects[idx].id;
-            }
-
-            await api(`/api/editor/${this.projectId}/copy-nodes`, {
-                method: 'POST',
-                body: JSON.stringify({ node_ids: [node.id], target_project_id: targetId }),
-            });
-
-            alert(`'${node.name}' gekopieerd naar je project.`);
-        },
-
-        async _duplicateNode(node) {
-            const data = await api(`/api/editor/${this.projectId}/nodes/${node.id}`);
-            await api(`/api/editor/${this.projectId}/nodes`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: node.name.replace(/(\.[^.]+)$/, ' (kopie)$1'),
-                    type: node.type,
-                    parent_id: node.parent_id,
-                    content: data.content,
-                }),
-            });
-            window.location.reload();
-        },
-
-        async openFile(node) {
-            if (node.type !== 'file') return;
-            const data = await api(`/api/editor/${this.projectId}/nodes/${node.id}`);
-            this.activeNode = data;
-            this.pdfUrl = null;
-            this.compileOutput = '';
-            this.rOutput = [];
-            this.rPlots = [];
-            this.rVars = [];
-            this._initEditor(data.content ?? '', data.name);
-        },
-
-        _initEditor(content, filename) {
-            if (this.editorView) {
-                this.editorView.destroy();
-            }
-
-            const self = this;
-            const extensions = [
-                basicSetup,
-                getLanguage(filename),
-                EditorView.updateListener.of((update) => {
-                    if (update.docChanged) {
-                        self._scheduleAutoSave();
-                    }
-                }),
-                EditorView.theme({
-                    '&': { height: '100%' },
-                    '.cm-scroller': { overflow: 'auto' },
-                }),
-            ];
-
-            if (document.documentElement.classList.contains('dark')) {
-                extensions.push(oneDark);
-            }
-
-            this.editorView = new EditorView({
-                state: EditorState.create({ doc: content, extensions }),
-                parent: document.getElementById('codemirror-container'),
-            });
-        },
-
-        _scheduleAutoSave() {
-            clearTimeout(this._saveTimeout);
-            this.saved = false;
-            this._saveTimeout = setTimeout(() => this._save(), 800);
-        },
-
-        async _save() {
-            if (!this.activeNode || !this.editorView) return;
-            this.saving = true;
-            try {
-                await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ content: this.editorView.state.doc.toString() }),
-                });
-                this.saved = true;
-                setTimeout(() => { this.saved = false; }, 2000);
-            } finally {
-                this.saving = false;
-            }
-        },
-
-        async createItem(type) {
-            const name = prompt(type === 'file' ? 'Bestandsnaam:' : 'Mapnaam:');
-            if (!name?.trim()) return;
-            const node = await api(`/api/editor/${this.projectId}/nodes`, {
-                method: 'POST',
-                body: JSON.stringify({ name: name.trim(), type, parent_id: null }),
-            });
-            if (type === 'file') {
-                window.location.href = `/editor/${this.projectId}?file=${node.id}`;
-            } else {
-                window.location.reload();
-            }
-        },
-
-        compiling: false,
-        compileOutput: '',
-        rOutput: [],
-
-        async compile() {
-            if (!this.activeNode) return;
-            await this._save();
-            this.compiling = true;
-            this.compileOutput = '';
-            try {
-                const res = await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}/compile`, {
-                    method: 'POST',
-                    body: JSON.stringify({ compiler: this.compiler }),
-                });
-                this.compileOutput = res.output ?? '';
-                if (res.pdf_url) {
-                    this.pdfUrl = res.pdf_url + '?t=' + Date.now();
-                }
-            } catch (e) {
-                this.compileOutput = 'Compilatie mislukt: ' + e.message;
-            } finally {
-                this.compiling = false;
-            }
-        },
-
-        async executeR() {
-            if (!this.activeNode || !this.editorView) return;
-            const sel = this.editorView.state.selection.main;
-            let code;
-            if (sel.from !== sel.to) {
-                code = this.editorView.state.sliceDoc(sel.from, sel.to);
-            } else {
-                const line = this.editorView.state.doc.lineAt(sel.head);
-                code = line.text;
-            }
-            try {
-                const res = await api(`/api/editor/${this.projectId}/nodes/${this.activeNode.id}/execute-r`, {
-                    method: 'POST',
-                    body: JSON.stringify({ code }),
-                });
-                if (res.output) {
-                    this.rOutput = [...this.rOutput, ...res.output];
-                }
-                if (res.variables) {
-                    this.rVars = res.variables;
-                }
-                if (res.plots?.length) {
-                    this.rPlots = [...this.rPlots, ...res.plots];
-                }
-            } catch (e) {
-                this.rOutput = [...this.rOutput, { type: 'error', text: e.message }];
-            }
-        },
-
-        // Upload
-        async uploadFiles(input) {
-            const files = Array.from(input.files);
-            if (!files.length) return;
-
-            const fileData = [];
-            for (const file of files) {
-                const path = file.webkitRelativePath || file.name;
-                const content = await file.text();
-                fileData.push({ name: file.name, path, content });
-            }
-
-            const res = await api(`/api/editor/${this.projectId}/upload`, {
-                method: 'POST',
-                body: JSON.stringify({ files: fileData }),
-            });
-
-            this.nodes = res.nodes;
-            this._renderTree();
-            input.value = '';
-        },
-
-        clearOutput() {
-            this.rOutput = [];
-            this.compileOutput = '';
-        },
-
-        clearPlots() {
-            this.rPlots = [];
-        },
-
-        isCompilable,
-        isExecutable,
-    };
-};
-
-// ─── Resizable panels ───────────────────────────────────────────────────────
-
-window.resizablePanels = function () {
-    return {
-        leftW: 240,
-        rightW: 320,
-        _resizing: null,
-        _startX: 0,
-        _startW: 0,
-
-        startResize(side, e) {
-            e.preventDefault();
-            this._resizing = side;
-            this._startX = e.clientX;
-            this._startW = side === 'left' ? this.leftW : this.rightW;
-            e.target.classList.add('active');
-            const handle = e.target;
-
-            const onMove = (ev) => {
-                const dx = ev.clientX - this._startX;
-                if (this._resizing === 'left') {
-                    this.leftW = Math.max(120, Math.min(500, this._startW + dx));
-                } else {
-                    this.rightW = Math.max(150, Math.min(600, this._startW - dx));
-                }
-            };
-            const onUp = () => {
-                handle.classList.remove('active');
-                this._resizing = null;
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        },
-
-        startResizeH(e, container, setter) {
-            e.preventDefault();
-            const startY = e.clientY;
-            const totalH = container.offsetHeight;
-            const handle = e.target;
-            handle.classList.add('active');
-
-            // Get current percentage from current top panel height
-            const topPanel = container.children[0];
-            const startPct = (topPanel.offsetHeight / totalH) * 100;
-
-            const onMove = (ev) => {
-                const dy = ev.clientY - startY;
-                const newPct = startPct + (dy / totalH) * 100;
-                setter(Math.max(15, Math.min(85, newPct)));
-            };
-            const onUp = () => {
-                handle.classList.remove('active');
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', onUp);
-            };
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onUp);
-        },
-    };
-};
-
-// Globale upload handler (buiten Alpine om async/proxy problemen te vermijden)
-window._handleUpload = async function (input) {
-    const files = Array.from(input.files);
-    if (!files.length) return;
-
-    const projectId = window.location.pathname.split('/')[2];
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-    const formData = new FormData();
-
-    files.forEach((file, i) => {
-        formData.append(`files[${i}]`, file);
-        formData.append(`paths[${i}]`, file.webkitRelativePath || file.name);
+function bindDragSource(row, path) {
+    if (!CAN_WRITE) return;
+    row.addEventListener('dragstart', (e) => {
+        dragSourcePath = path;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', path);
     });
+    row.addEventListener('dragend', () => {
+        dragSourcePath = null;
+        document.querySelectorAll('.filetree-row.drop-target').forEach(el => el.classList.remove('drop-target'));
+    });
+}
 
-    try {
-        const res = await fetch(`/api/editor/${projectId}/upload`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
-            body: formData,
-        });
-        if (!res.ok) throw new Error(`Upload mislukt (${res.status})`);
-    } catch (e) {
-        alert(e.message);
+function bindDropTarget(row, folderPath) {
+    if (!CAN_WRITE) return;
+    row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = dragSourcePath ? 'move' : 'copy';
+        row.classList.add('drop-target');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('drop-target'));
+    row.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        row.classList.remove('drop-target');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            await uploadFiles(e.dataTransfer.files, folderPath);
+            return;
+        }
+        if (dragSourcePath && dragSourcePath !== folderPath) {
+            await moveNode(dragSourcePath, folderPath);
+        }
+    });
+}
+
+function bindRootDropZone() {
+    treeEl.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = dragSourcePath ? 'move' : 'copy'; };
+    treeEl.ondrop = async (e) => {
+        if (e.target !== treeEl) return;
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            await uploadFiles(e.dataTransfer.files, '');
+        } else if (dragSourcePath) {
+            await moveNode(dragSourcePath, '');
+        }
+    };
+}
+
+async function loadTree(preservedPath) {
+    const data = await api('GET', apiUrl('/tree'));
+    state.tree = data.tree;
+    renderTree();
+    if (preservedPath) state.activePath = preservedPath;
+}
+
+async function openFile(path) {
+    const token = ++currentLoadToken;
+    state.activePath = path;
+    renderTree();
+    const data = await api('GET', apiUrl(`/file?path=${encodeURIComponent(path)}`));
+    if (token !== currentLoadToken) return;
+
+    state.activeFile = { path, ...data };
+    document.getElementById('active-file-name').textContent = data.name;
+    document.getElementById('save-indicator').classList.add('hidden');
+    document.getElementById('saved-indicator').classList.add('hidden');
+    document.getElementById('readonly-hint').classList.toggle('hidden', CAN_WRITE);
+
+    document.getElementById('editor-empty').classList.add('hidden');
+    document.getElementById('editor-mount').classList.add('hidden');
+    document.getElementById('image-viewer').classList.add('hidden');
+    document.getElementById('binary-notice').classList.add('hidden');
+
+    if (data.kind === 'text') {
+        document.getElementById('editor-mount').classList.remove('hidden');
+        showEditor(data.content, data.extension);
+    } else if (data.kind === 'viewable' && data.extension === 'pdf') {
+        const pdf = document.getElementById('pdf-frame');
+        pdf.src = data.url;
+        pdf.classList.remove('hidden');
+        document.getElementById('output-empty').classList.add('hidden');
+    } else if (data.kind === 'viewable') {
+        const v = document.getElementById('image-viewer');
+        v.innerHTML = `<img src="${data.url}" class="mx-auto max-w-full">`;
+        v.classList.remove('hidden');
+    } else {
+        const b = document.getElementById('binary-notice');
+        b.classList.remove('hidden');
+        b.textContent = `Binair bestand (${formatSize(data.size || 0)}) — niet bewerkbaar.`;
     }
 
-    input.value = '';
-    window.location.reload();
-};
+    renderToolbar();
+    await loadLastCompileLog();
+}
 
-// Start Alpine
-window.Alpine = Alpine;
-Alpine.start();
+function formatSize(n) {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024*1024) return `${(n/1024).toFixed(1)} KB`;
+    return `${(n/(1024*1024)).toFixed(1)} MB`;
+}
+
+function showEditor(content, ext) {
+    const mount = document.getElementById('editor-mount');
+    if (editorView) {
+        editorView.dispatch({
+            changes: { from: 0, to: editorView.state.doc.length, insert: content },
+            effects: [
+                langCompartment.reconfigure(langFor(ext)),
+                readOnlyCompartment.reconfigure(EditorState.readOnly.of(!CAN_WRITE)),
+            ],
+        });
+        return;
+    }
+    const startState = EditorState.create({
+        doc: content,
+        extensions: [
+            lineNumbers(),
+            history(),
+            foldGutter(),
+            bracketMatching(),
+            highlightActiveLine(),
+            syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+            autocompletion(),
+            keymap.of([
+                ...defaultKeymap,
+                ...historyKeymap,
+                ...searchKeymap,
+                ...completionKeymap,
+                indentWithTab,
+                { key: 'Mod-Enter', preventDefault: true, run: () => { runCompileOrR(); return true; } },
+                { key: 'Mod-s',     preventDefault: true, run: () => { saveImmediately(); return true; } },
+            ]),
+            EditorView.updateListener.of(update => {
+                if (update.docChanged && CAN_WRITE) scheduleSave();
+            }),
+            langCompartment.of(langFor(ext)),
+            readOnlyCompartment.of(EditorState.readOnly.of(!CAN_WRITE)),
+        ],
+    });
+    editorView = new EditorView({ state: startState, parent: mount });
+}
+
+function scheduleSave() {
+    document.getElementById('saved-indicator').classList.add('hidden');
+    document.getElementById('save-indicator').classList.remove('hidden');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveImmediately, 600);
+}
+
+async function saveImmediately() {
+    if (!editorView || !state.activeFile || !CAN_WRITE) return;
+    const content = editorView.state.doc.toString();
+    try {
+        await api('PUT', apiUrl('/file'), { path: state.activeFile.path, content });
+        document.getElementById('save-indicator').classList.add('hidden');
+        document.getElementById('saved-indicator').classList.remove('hidden');
+    } catch (e) {
+        console.error(e);
+        document.getElementById('save-indicator').textContent = 'opslaan mislukt';
+    }
+}
+
+const toolbar = document.getElementById('toolbar');
+
+function renderToolbar() {
+    toolbar.innerHTML = '';
+    if (!state.activeFile) return;
+    const ext = state.activeFile.extension;
+    if (CAN_WRITE && COMPILABLE.includes(ext)) {
+        if (ext === 'tex') {
+            const sel = document.createElement('select');
+            sel.className = 'rounded border border-gray-300 px-2 py-0.5 text-xs';
+            for (const c of ['pdflatex','xelatex','lualatex']) {
+                const opt = document.createElement('option');
+                opt.value = c; opt.textContent = c;
+                if (c === state.compiler) opt.selected = true;
+                sel.appendChild(opt);
+            }
+            sel.addEventListener('change', () => state.compiler = sel.value);
+            toolbar.appendChild(sel);
+        }
+        const btn = document.createElement('button');
+        btn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600';
+        btn.textContent = 'Compileren';
+        btn.dataset.testid = 'compile-btn';
+        btn.addEventListener('click', compile);
+        toolbar.appendChild(btn);
+
+        const logBtn = document.createElement('button');
+        logBtn.className = 'rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100';
+        logBtn.textContent = 'Log';
+        logBtn.addEventListener('click', toggleCompileLog);
+        toolbar.appendChild(logBtn);
+    } else if (CAN_WRITE && RUNNABLE.includes(ext)) {
+        const runBtn = document.createElement('button');
+        runBtn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600';
+        runBtn.textContent = 'Uitvoeren';
+        runBtn.dataset.testid = 'run-btn';
+        runBtn.addEventListener('click', () => runR());
+        toolbar.appendChild(runBtn);
+    }
+}
+
+function renderFiletreeActions() {
+    const host = document.getElementById('filetree-actions');
+    if (!host) return;
+    host.innerHTML = '';
+    const make = (label, title, onClick) => {
+        const b = document.createElement('button');
+        b.className = 'rounded p-1 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-700';
+        b.title = title;
+        b.textContent = label;
+        b.addEventListener('click', onClick);
+        return b;
+    };
+    host.appendChild(make('+F', 'Nieuw bestand', () => createInteractive('file')));
+    host.appendChild(make('+M', 'Nieuwe map', () => createInteractive('folder')));
+    const lab = document.createElement('label');
+    lab.className = 'cursor-pointer rounded p-1 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-700';
+    lab.title = 'Bestanden uploaden';
+    lab.textContent = '⤴';
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.multiple = true; inp.className = 'hidden';
+    inp.dataset.testid = 'upload-input';
+    inp.addEventListener('change', () => uploadFiles(inp.files, '').then(() => inp.value = ''));
+    lab.appendChild(inp);
+    host.appendChild(lab);
+}
+
+async function createInteractive(type) {
+    const name = prompt(type === 'folder' ? 'Naam van de nieuwe map:' : 'Naam van het nieuwe bestand:');
+    if (!name) return;
+    try {
+        await api('POST', apiUrl('/file'), { path: name, type });
+        await loadTree(state.activePath);
+    } catch (e) { alert('Kan niet aanmaken: ' + e.message); }
+}
+
+async function uploadFiles(files, folderPath) {
+    if (!CAN_WRITE || !files || !files.length) return;
+    const fd = new FormData();
+    fd.append('folder', folderPath || '');
+    for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        fd.append('files[]', f);
+        const rel = f.webkitRelativePath || f.name;
+        fd.append('paths[]', rel);
+    }
+    try {
+        await api('POST', apiUrl('/upload'), fd);
+        await loadTree(state.activePath);
+    } catch (e) { alert('Upload mislukt: ' + e.message); }
+}
+
+async function moveNode(path, newParent) {
+    try {
+        await api('PATCH', apiUrl('/file/move'), { path, parent: newParent });
+        await loadTree(state.activePath);
+    } catch (e) { alert('Verplaatsen mislukt: ' + e.message); }
+}
+
+async function renamePath(path) {
+    const oldName = path.split('/').pop();
+    const newName = prompt('Nieuwe naam:', oldName);
+    if (!newName || newName === oldName) return;
+    try {
+        const res = await api('PATCH', apiUrl('/file/rename'), { path, name: newName });
+        if (state.activePath === path) state.activePath = res.path;
+        await loadTree(state.activePath);
+    } catch (e) { alert('Hernoemen mislukt: ' + e.message); }
+}
+
+async function deletePath(path) {
+    if (!confirm(`Verwijder ${path}?`)) return;
+    try {
+        await api('DELETE', apiUrl('/file'), { path });
+        if (state.activePath === path) {
+            state.activePath = null;
+            state.activeFile = null;
+            document.getElementById('active-file-name').textContent = 'Selecteer een bestand';
+            document.getElementById('editor-empty').classList.remove('hidden');
+            document.getElementById('editor-mount').classList.add('hidden');
+        }
+        await loadTree(state.activePath);
+    } catch (e) { alert('Verwijderen mislukt: ' + e.message); }
+}
+
+let contextMenuEl = null;
+function showContextMenu(e, node) {
+    e.preventDefault();
+    closeContextMenu();
+    if (!CAN_WRITE) return;
+    const menu = document.createElement('div');
+    menu.className = 'fixed z-50 min-w-32 rounded border border-gray-200 bg-white py-1 text-xs shadow-lg';
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    const item = (label, fn) => {
+        const b = document.createElement('button');
+        b.className = 'block w-full px-3 py-1 text-left hover:bg-amber-50';
+        b.textContent = label;
+        b.addEventListener('click', () => { closeContextMenu(); fn(); });
+        menu.appendChild(b);
+    };
+    item('Hernoem', () => renamePath(node.path));
+    item('Verwijder', () => deletePath(node.path));
+    document.body.appendChild(menu);
+    contextMenuEl = menu;
+    setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
+}
+function closeContextMenu() {
+    if (contextMenuEl) { contextMenuEl.remove(); contextMenuEl = null; }
+}
+
+async function runCompileOrR() {
+    if (!state.activeFile) return;
+    if (COMPILABLE.includes(state.activeFile.extension)) await compile();
+    else if (RUNNABLE.includes(state.activeFile.extension)) await runR();
+}
+
+async function compile() {
+    if (!state.activeFile) return;
+    if (!COMPILABLE.includes(state.activeFile.extension)) return;
+    await saveImmediately();
+    document.getElementById('compile-status').textContent = 'bezig…';
+    try {
+        const res = await api('POST', apiUrl('/compile'), {
+            path: state.activeFile.path,
+            compiler: state.activeFile.extension === 'tex' ? state.compiler : null,
+        });
+        document.getElementById('compile-status').textContent = res.status === 'success' ? 'klaar' : 'fout';
+        showCompileOutput(res);
+    } catch (e) {
+        document.getElementById('compile-status').textContent = 'fout';
+        showCompileOutput({ status: 'failed', log: String(e.message), pdf_url: null });
+    }
+}
+
+async function loadLastCompileLog() {
+    const f = state.activeFile;
+    if (!f || !COMPILABLE.includes(f.extension)) return;
+    try {
+        const res = await api('GET', apiUrl(`/compile/log?path=${encodeURIComponent(f.path)}`));
+        if (res.pdf_url || res.log) showCompileOutput(res);
+    } catch {}
+}
+
+function showCompileOutput(res) {
+    document.getElementById('output-empty').classList.add('hidden');
+    document.getElementById('r-output').classList.add('hidden');
+    document.getElementById('r-output').classList.remove('flex');
+    const pdf = document.getElementById('pdf-frame');
+    const log = document.getElementById('compile-log');
+    if (res.pdf_url) {
+        pdf.src = res.pdf_url;
+        pdf.classList.remove('hidden');
+        log.classList.add('hidden');
+    } else {
+        pdf.classList.add('hidden');
+        pdf.src = 'about:blank';
+        log.textContent = res.log || 'Geen output';
+        log.classList.remove('hidden');
+    }
+}
+
+function toggleCompileLog() {
+    const log = document.getElementById('compile-log');
+    const pdf = document.getElementById('pdf-frame');
+    if (log.classList.contains('hidden')) {
+        pdf.classList.add('hidden');
+        log.classList.remove('hidden');
+        document.getElementById('output-empty').classList.add('hidden');
+    } else if (pdf.src && pdf.src !== 'about:blank') {
+        log.classList.add('hidden');
+        pdf.classList.remove('hidden');
+    }
+}
+
+async function runR() {
+    if (!editorView || !state.activeFile) return;
+    if (state.activeFile.extension !== 'r') return;
+    const sel = editorView.state.selection.main;
+    let code;
+    if (!sel.empty) {
+        code = editorView.state.sliceDoc(sel.from, sel.to);
+    } else {
+        const line = editorView.state.doc.lineAt(sel.head);
+        code = line.text;
+    }
+    if (!code.trim()) return;
+    document.getElementById('compile-status').textContent = 'R draait…';
+    try {
+        const res = await api('POST', apiUrl('/r/execute'), { code });
+        document.getElementById('compile-status').textContent = '';
+        appendROutput(res.output || []);
+        state.rVars = res.variables || [];
+        state.rPlots = res.plots || [];
+        state.plotIndex = 0;
+        renderRSidebar();
+        showROutput();
+    } catch (e) {
+        document.getElementById('compile-status').textContent = 'fout';
+        appendROutput([{ type: 'error', text: e.message }]);
+        showROutput();
+    }
+}
+
+function appendROutput(entries) {
+    state.rOutput.push(...entries);
+    const host = document.getElementById('r-console');
+    for (const entry of entries) {
+        const div = document.createElement('div');
+        const cls = entry.type === 'code' ? 'text-blue-600' : entry.type === 'error' ? 'text-red-500' : 'text-gray-800';
+        div.className = `block ${cls}`;
+        div.textContent = (entry.type === 'code' ? '> ' : '') + entry.text;
+        host.appendChild(div);
+    }
+    host.scrollTop = host.scrollHeight;
+}
+
+function renderRSidebar() {
+    const varsEl = document.getElementById('r-vars');
+    varsEl.innerHTML = '';
+    if (!state.rVars.length) {
+        const p = document.createElement('p');
+        p.className = 'py-2 text-center text-xs text-gray-400';
+        p.textContent = 'Geen variabelen';
+        varsEl.appendChild(p);
+    } else {
+        for (const v of state.rVars) {
+            const row = document.createElement('div');
+            row.className = 'mb-1 flex items-baseline gap-2 rounded px-2 py-0.5 text-xs hover:bg-gray-50';
+            const a = document.createElement('span'); a.className = 'font-mono font-bold text-blue-600'; a.textContent = v.name;
+            const b = document.createElement('span'); b.className = 'text-gray-400'; b.textContent = v.class;
+            const c = document.createElement('span'); c.className = 'ml-auto max-w-xs truncate text-gray-500'; c.textContent = v.preview;
+            row.append(a, b, c);
+            varsEl.appendChild(row);
+        }
+    }
+    const plotEl = document.getElementById('r-plots');
+    plotEl.innerHTML = '';
+    const count = document.getElementById('plot-count');
+    if (state.rPlots.length) {
+        count.textContent = state.rPlots.length;
+        count.classList.remove('hidden');
+        const nav = document.createElement('div');
+        nav.className = 'mb-2 flex items-center justify-center gap-2 text-xs text-gray-500';
+        const prev = document.createElement('button'); prev.textContent = '◀'; prev.className = 'px-2 hover:text-amber-500';
+        const idxLabel = document.createElement('span');
+        const next = document.createElement('button'); next.textContent = '▶'; next.className = 'px-2 hover:text-amber-500';
+        prev.onclick = () => { state.plotIndex = Math.max(0, state.plotIndex-1); renderRSidebar(); };
+        next.onclick = () => { state.plotIndex = Math.min(state.rPlots.length-1, state.plotIndex+1); renderRSidebar(); };
+        idxLabel.textContent = `${state.plotIndex+1} / ${state.rPlots.length}`;
+        nav.append(prev, idxLabel, next);
+        plotEl.appendChild(nav);
+        const img = document.createElement('img');
+        img.src = state.rPlots[Math.min(state.plotIndex, state.rPlots.length-1)];
+        img.className = 'mx-auto max-w-full cursor-zoom-in rounded border';
+        img.addEventListener('click', () => openPlotZoom(img.src));
+        plotEl.appendChild(img);
+    } else {
+        count.classList.add('hidden');
+        const p = document.createElement('p');
+        p.className = 'py-2 text-center text-xs text-gray-400';
+        p.textContent = 'Geen plots';
+        plotEl.appendChild(p);
+    }
+}
+
+function openPlotZoom(src) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/70 p-4';
+    const img = document.createElement('img');
+    img.src = src;
+    img.className = 'max-h-full max-w-full';
+    overlay.appendChild(img);
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+}
+
+function showROutput() {
+    document.getElementById('output-empty').classList.add('hidden');
+    document.getElementById('compile-log').classList.add('hidden');
+    document.getElementById('pdf-frame').classList.add('hidden');
+    const r = document.getElementById('r-output');
+    r.classList.remove('hidden');
+    r.classList.add('flex');
+}
+
+document.getElementById('r-clear')?.addEventListener('click', () => {
+    state.rOutput = [];
+    document.getElementById('r-console').innerHTML = '';
+});
+
+document.getElementById('r-reset')?.addEventListener('click', async () => {
+    if (!confirm('R-sessie resetten? Alle variabelen worden gewist.')) return;
+    await api('POST', apiUrl('/r/reset'));
+    state.rOutput = []; state.rVars = []; state.rPlots = [];
+    document.getElementById('r-console').innerHTML = '';
+    renderRSidebar();
+});
+
+document.querySelectorAll('.r-tab').forEach(b => {
+    b.addEventListener('click', () => {
+        const tab = b.dataset.tab;
+        document.querySelectorAll('.r-tab').forEach(o => {
+            const active = o.dataset.tab === tab;
+            o.classList.toggle('text-amber-600', active);
+            o.classList.toggle('border-b-2', active);
+            o.classList.toggle('border-amber-500', active);
+            o.classList.toggle('text-gray-500', !active);
+        });
+        document.getElementById('r-vars').classList.toggle('hidden', tab !== 'vars');
+        document.getElementById('r-plots').classList.toggle('hidden', tab !== 'plots');
+    });
+});
+
+function bindResize() {
+    const left = document.getElementById('left-pane');
+    const right = document.getElementById('right-pane');
+    document.querySelectorAll('[data-resize]').forEach(handle => {
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const which = handle.dataset.resize;
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const leftStart = left.offsetWidth;
+            const rightStart = right.offsetWidth;
+            const consoleEl = document.getElementById('r-console');
+            const consoleStart = consoleEl ? consoleEl.offsetHeight : 0;
+            const onMove = (ev) => {
+                if (which === 'left') left.style.width = Math.max(160, leftStart + (ev.clientX - startX)) + 'px';
+                else if (which === 'right') right.style.width = Math.max(220, rightStart - (ev.clientX - startX)) + 'px';
+                else if (which === 'r-split' && consoleEl) consoleEl.style.height = Math.max(60, consoleStart + (ev.clientY - startY)) + 'px';
+            };
+            const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+        });
+    });
+}
+
+async function init() {
+    renderFiletreeActions();
+    bindResize();
+    await loadTree();
+    const url = new URL(window.location.href);
+    const initial = url.searchParams.get('path');
+    if (initial) await openFile(initial);
+}
+
+init().catch(e => {
+    console.error(e);
+    alert('Editor kon niet starten: ' + e.message);
+});

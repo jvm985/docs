@@ -44,7 +44,10 @@
       "Bash(cat tests/Browser/Screenshots/*.png)",
       "Bash(npm uninstall:*)",
       "Bash(composer remove:*)",
-      "Bash(/dev/null grep:*)"
+      "Bash(/dev/null grep:*)",
+      "Bash(rm -rf storage/app/compile storage/app/r_sessions storage/app/private/* storage/app/public/*)",
+      "Bash(rm -f database/database.sqlite)",
+      "Bash(touch database/database.sqlite)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-# Kopieer public assets van image naar volume (zodat nginx ze kan serveren)
+# Copy public assets to the shared volume so nginx can serve them
 cp -r /var/www/html/public-image/* /var/www/html/public/ 2>/dev/null || true
 
-# Zorg dat storage en database schrijfbaar zijn voor www-data
+# Make storage and database writable for www-data
 chown -R www-data:www-data /var/www/html/storage /var/www/html/database /var/www/html/public
 chmod -R 775 /var/www/html/storage /var/www/html/database
 
@@ -13,7 +13,7 @@ if [ ! -f /var/www/html/database/database.sqlite ]; then
 fi
 chown www-data:www-data /var/www/html/database/database.sqlite
 
-# Run migrations en cache bij elke start
+# Migrate and re-cache on every boot
 php artisan migrate --force
 php artisan config:cache
 php artisan route:cache

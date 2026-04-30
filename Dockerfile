@@ -1,24 +1,54 @@
-# Stage 1: Composer dependencies (needed for Filament theme CSS)
+# syntax=docker/dockerfile:1
+
+# Stage 1: Composer dependencies
 FROM composer:latest AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --ignore-platform-reqs
 
-# Stage 2: Node assets (needs vendor for Filament theme)
+# Stage 2: Node assets
 FROM node:24-alpine AS assets
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-COPY --from=vendor /app/vendor ./vendor
 RUN npm run build
 
-# Stage 3: PHP app
-FROM php:8.4-fpm-alpine
+# Stage 3: PHP app on debian (needed for LaTeX/Pandoc/R)
+FROM php:8.4-fpm
 
-RUN apk add --no-cache \
-    curl zip unzip sqlite sqlite-dev libxml2-dev oniguruma-dev icu-dev libzip-dev \
-    && docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System packages: tools, PHP build deps, LaTeX, Pandoc, R
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates unzip xz-utils git \
+    libsqlite3-dev sqlite3 libxml2-dev libonig-dev libicu-dev libzip-dev libpng-dev \
+    texlive-latex-base \
+    texlive-latex-recommended \
+    texlive-latex-extra \
+    texlive-xetex \
+    texlive-luatex \
+    texlive-fonts-recommended \
+    texlive-lang-european \
+    lmodern \
+    pandoc \
+    r-base \
+    r-base-dev \
+    libcurl4-openssl-dev libssl-dev libxml2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Typst (single static binary)
+RUN curl -fsSL https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz \
+    && tar -xJf /tmp/typst.tar.xz -C /tmp \
+    && mv /tmp/typst-x86_64-unknown-linux-musl/typst /usr/local/bin/typst \
+    && chmod +x /usr/local/bin/typst \
+    && rm -rf /tmp/typst*
+
+# PHP extensions
+RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip
+
+# R packages used by app
+RUN R -e "install.packages(c('rmarkdown','jsonlite','knitr'), repos='https://cloud.r-project.org')"
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

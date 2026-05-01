@@ -58,7 +58,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('/file/rename', [FileController::class, 'rename']);
         Route::patch('/file/move', [FileController::class, 'move']);
         Route::post('/upload', [FileController::class, 'upload']);
-        Route::post('/copy-from', [FileController::class, 'copyFromOther']);
+        Route::post('/import', [FileController::class, 'importFromProject']);
+        Route::post('/refresh-link', [FileController::class, 'refreshLink']);
 
         Route::post('/compile', [CompileController::class, 'compile']);
         Route::get('/compile/log', [CompileController::class, 'lastLog']);
@@ -71,4 +72,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/my-projects', fn () => response()->json(
         request()->user()->projects()->select('id', 'name')->orderBy('name')->get()
     ));
+
+    Route::get('/api/accessible-projects', [FileController::class, 'accessibleProjects']);
+    Route::get('/api/browse-project/{other}', [FileController::class, 'browseProject'])
+        ->where('other', '[0-9]+');
 });

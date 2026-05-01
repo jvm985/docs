@@ -116,6 +116,13 @@ function renderTreeNode(node) {
         label.className = 'flex-1 truncate';
         label.textContent = node.name;
         row.appendChild(label);
+        if (node.is_linked) {
+            const link = document.createElement('span');
+            link.className = 'ml-1 text-sky-500';
+            link.textContent = '🔗';
+            link.title = 'Bevat gelinkte bestanden';
+            row.appendChild(link);
+        }
         row.addEventListener('click', () => toggleFolder(node.path));
         row.addEventListener('contextmenu', (e) => showContextMenu(e, node));
         bindDropTarget(row, node.path);
@@ -131,6 +138,13 @@ function renderTreeNode(node) {
         label.textContent = node.name;
         label.dataset.testid = 'file-label';
         row.appendChild(label);
+        if (node.is_linked) {
+            const link = document.createElement('span');
+            link.className = 'ml-1 text-sky-500';
+            link.textContent = '🔗';
+            link.title = 'Gelinkt vanuit een ander project (alleen-lezen)';
+            row.appendChild(link);
+        }
         row.addEventListener('click', () => openFile(node.path));
         row.addEventListener('contextmenu', (e) => showContextMenu(e, node));
         bindDragSource(row, node.path);
@@ -224,7 +238,10 @@ async function openFile(path) {
     document.getElementById('active-file-name').textContent = data.name;
     document.getElementById('save-indicator').classList.add('hidden');
     document.getElementById('saved-indicator').classList.add('hidden');
-    document.getElementById('readonly-hint').classList.toggle('hidden', CAN_WRITE);
+    const editable = CAN_WRITE && !data.is_linked;
+    const hint = document.getElementById('readonly-hint');
+    hint.classList.toggle('hidden', editable);
+    hint.textContent = data.is_linked ? '— gelinkt, alleen-lezen' : '— alleen lezen';
 
     document.getElementById('editor-empty').classList.add('hidden');
     document.getElementById('editor-mount').classList.add('hidden');
@@ -259,14 +276,19 @@ function formatSize(n) {
     return `${(n/(1024*1024)).toFixed(1)} MB`;
 }
 
+function isCurrentEditable() {
+    return CAN_WRITE && !(state.activeFile && state.activeFile.is_linked);
+}
+
 function showEditor(content, ext) {
     const mount = document.getElementById('editor-mount');
+    const editable = isCurrentEditable();
     if (editorView) {
         editorView.dispatch({
             changes: { from: 0, to: editorView.state.doc.length, insert: content },
             effects: [
                 langCompartment.reconfigure(langFor(ext)),
-                readOnlyCompartment.reconfigure(EditorState.readOnly.of(!CAN_WRITE)),
+                readOnlyCompartment.reconfigure(EditorState.readOnly.of(!editable)),
             ],
         });
         return;
@@ -291,10 +313,10 @@ function showEditor(content, ext) {
                 { key: 'Mod-s',     preventDefault: true, run: () => { saveImmediately(); return true; } },
             ]),
             EditorView.updateListener.of(update => {
-                if (update.docChanged && CAN_WRITE) scheduleSave();
+                if (update.docChanged && isCurrentEditable()) scheduleSave();
             }),
             langCompartment.of(langFor(ext)),
-            readOnlyCompartment.of(EditorState.readOnly.of(!CAN_WRITE)),
+            readOnlyCompartment.of(EditorState.readOnly.of(!editable)),
         ],
     });
     editorView = new EditorView({ state: startState, parent: mount });
@@ -308,7 +330,7 @@ function scheduleSave() {
 }
 
 async function saveImmediately() {
-    if (!editorView || !state.activeFile || !CAN_WRITE) return;
+    if (!editorView || !state.activeFile || !isCurrentEditable()) return;
     const content = editorView.state.doc.toString();
     try {
         await api('PUT', apiUrl('/file'), { path: state.activeFile.path, content });
@@ -326,7 +348,19 @@ function renderToolbar() {
     toolbar.innerHTML = '';
     if (!state.activeFile) return;
     const ext = state.activeFile.extension;
-    if (CAN_WRITE && COMPILABLE.includes(ext)) {
+    const editable = isCurrentEditable();
+
+    if (state.activeFile.is_linked && CAN_WRITE) {
+        const refresh = document.createElement('button');
+        refresh.className = 'rounded border border-sky-300 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100';
+        refresh.textContent = '↻ Refresh';
+        refresh.title = 'Bestand opnieuw kopiëren uit het bronproject';
+        refresh.dataset.testid = 'refresh-link-btn';
+        refresh.addEventListener('click', refreshLink);
+        toolbar.appendChild(refresh);
+    }
+
+    if (editable && COMPILABLE.includes(ext)) {
         if (ext === 'tex') {
             const sel = document.createElement('select');
             sel.className = 'rounded border border-gray-300 px-2 py-0.5 text-xs';
@@ -351,13 +385,18 @@ function renderToolbar() {
         logBtn.textContent = 'Log';
         logBtn.addEventListener('click', toggleCompileLog);
         toolbar.appendChild(logBtn);
-    } else if (CAN_WRITE && RUNNABLE.includes(ext)) {
+    } else if (editable && RUNNABLE.includes(ext)) {
         const runBtn = document.createElement('button');
         runBtn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600';
         runBtn.textContent = 'Uitvoeren';
         runBtn.dataset.testid = 'run-btn';
         runBtn.addEventListener('click', () => runR());
         toolbar.appendChild(runBtn);
+    } else if (state.activeFile.is_linked && CAN_WRITE && RUNNABLE.includes(ext)) {
+        const note = document.createElement('span');
+        note.className = 'text-xs text-gray-400';
+        note.textContent = 'Gelinkt bestand kan niet uitgevoerd worden — refresh of kopieer naar dit project';
+        toolbar.appendChild(note);
     }
 }
 
@@ -375,16 +414,51 @@ function renderFiletreeActions() {
     };
     host.appendChild(make('+F', 'Nieuw bestand', () => createInteractive('file')));
     host.appendChild(make('+M', 'Nieuwe map', () => createInteractive('folder')));
-    const lab = document.createElement('label');
-    lab.className = 'cursor-pointer rounded p-1 text-xs text-gray-400 hover:bg-gray-200 hover:text-gray-700';
-    lab.title = 'Bestanden uploaden';
-    lab.textContent = '⤴';
+    host.appendChild(make('⤴', 'Toevoegen…', (e) => openImportMenu(e.currentTarget)));
+}
+
+function openImportMenu(anchor) {
+    closeImportMenu();
+    const rect = anchor.getBoundingClientRect();
+    const menu = document.createElement('div');
+    menu.className = 'fixed z-50 min-w-56 rounded border border-gray-200 bg-white py-1 text-xs shadow-lg';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.left = rect.left + 'px';
+    menu.dataset.testid = 'import-menu';
+
+    const item = (label, onClick) => {
+        const b = document.createElement('button');
+        b.className = 'block w-full px-3 py-1.5 text-left hover:bg-amber-50';
+        b.textContent = label;
+        b.addEventListener('click', () => { closeImportMenu(); onClick(); });
+        menu.appendChild(b);
+    };
+
+    item('📄 Bestanden van schijf…', () => triggerFilePicker(false));
+    item('📁 Map van schijf…', () => triggerFilePicker(true));
+    item('🔗 Importeer uit een ander project…', () => openProjectBrowser());
+
+    document.body.appendChild(menu);
+    importMenuEl = menu;
+    setTimeout(() => document.addEventListener('click', closeImportMenu, { once: true }), 0);
+}
+
+let importMenuEl = null;
+function closeImportMenu() {
+    if (importMenuEl) { importMenuEl.remove(); importMenuEl = null; }
+}
+
+function triggerFilePicker(folder) {
     const inp = document.createElement('input');
-    inp.type = 'file'; inp.multiple = true; inp.className = 'hidden';
-    inp.dataset.testid = 'upload-input';
-    inp.addEventListener('change', () => uploadFiles(inp.files, '').then(() => inp.value = ''));
-    lab.appendChild(inp);
-    host.appendChild(lab);
+    inp.type = 'file';
+    inp.multiple = true;
+    if (folder) inp.webkitdirectory = true;
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', () => {
+        uploadFiles(inp.files, '').finally(() => inp.remove());
+    });
+    inp.click();
 }
 
 async function createInteractive(type) {
@@ -493,6 +567,170 @@ async function compile() {
         document.getElementById('compile-status').textContent = 'fout';
         showCompileOutput({ status: 'failed', log: String(e.message), pdf_url: null });
     }
+}
+
+async function openProjectBrowser() {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6';
+    overlay.dataset.testid = 'project-browser';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+    const panel = document.createElement('div');
+    panel.className = 'flex h-[80vh] w-full max-w-3xl flex-col rounded-lg bg-white shadow-2xl';
+    overlay.appendChild(panel);
+
+    const head = document.createElement('div');
+    head.className = 'flex items-center justify-between border-b px-4 py-2';
+    head.innerHTML = `<h3 class="text-sm font-semibold">Importeer uit een ander project</h3>`;
+    const close = document.createElement('button');
+    close.className = 'text-gray-400 hover:text-red-500';
+    close.textContent = '✕';
+    close.addEventListener('click', () => overlay.remove());
+    head.appendChild(close);
+    panel.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'flex flex-1 overflow-hidden';
+    panel.appendChild(body);
+
+    const left = document.createElement('div');
+    left.className = 'w-1/3 overflow-y-auto border-r bg-gray-50 text-xs';
+    const right = document.createElement('div');
+    right.className = 'flex flex-1 flex-col overflow-hidden';
+    body.append(left, right);
+
+    const treeWrap = document.createElement('div');
+    treeWrap.className = 'flex-1 overflow-y-auto p-2 text-xs';
+    right.appendChild(treeWrap);
+
+    const footer = document.createElement('div');
+    footer.className = 'flex items-center justify-between gap-2 border-t bg-gray-50 px-4 py-2 text-xs';
+    const status = document.createElement('span');
+    status.className = 'text-gray-500';
+    const actions = document.createElement('div');
+    actions.className = 'flex items-center gap-3';
+    const modeWrap = document.createElement('label');
+    modeWrap.className = 'flex items-center gap-1';
+    modeWrap.innerHTML = `<input type="checkbox" id="link-mode" checked> <span>Houd gelinkt aan origineel</span>`;
+    const importBtn = document.createElement('button');
+    importBtn.className = 'rounded bg-amber-500 px-3 py-1 font-medium text-white hover:bg-amber-600 disabled:opacity-50';
+    importBtn.textContent = 'Importeer';
+    importBtn.disabled = true;
+    importBtn.dataset.testid = 'import-confirm';
+    actions.append(modeWrap, importBtn);
+    footer.append(status, actions);
+    right.appendChild(footer);
+
+    let selectedProject = null;
+    let selectedPath = null;
+
+    importBtn.addEventListener('click', async () => {
+        if (!selectedProject || selectedPath === null) return;
+        importBtn.disabled = true;
+        status.textContent = 'Bezig met importeren…';
+        try {
+            const mode = document.getElementById('link-mode').checked ? 'link' : 'copy';
+            await api('POST', apiUrl('/import'), {
+                source_project_id: selectedProject.id,
+                source_path: selectedPath,
+                target_parent: '',
+                mode,
+            });
+            overlay.remove();
+            await loadTree(state.activePath);
+        } catch (e) {
+            status.textContent = 'Fout: ' + e.message;
+            importBtn.disabled = false;
+        }
+    });
+
+    document.body.appendChild(overlay);
+
+    try {
+        const list = await api('GET', '/api/accessible-projects');
+        const projects = list.projects.filter(p => p.id !== PROJECT_ID);
+        if (!projects.length) {
+            left.innerHTML = '<p class="p-3 text-gray-400">Geen toegankelijke projecten.</p>';
+            return;
+        }
+        left.innerHTML = '';
+        for (const p of projects) {
+            const row = document.createElement('button');
+            row.className = 'block w-full border-b px-3 py-2 text-left hover:bg-amber-50';
+            row.innerHTML = `<div class="font-medium">${escapeHtml(p.name)}</div><div class="text-xs text-gray-400">${p.access}</div>`;
+            row.addEventListener('click', async () => {
+                left.querySelectorAll('button').forEach(b => b.classList.remove('bg-amber-50','font-semibold'));
+                row.classList.add('bg-amber-50','font-semibold');
+                selectedProject = p;
+                selectedPath = null;
+                importBtn.disabled = true;
+                status.textContent = 'Tree laden…';
+                treeWrap.innerHTML = '';
+                try {
+                    const data = await api('GET', `/api/browse-project/${p.id}`);
+                    status.textContent = '';
+                    treeWrap.appendChild(renderBrowserTree(data.tree, '', (path) => {
+                        selectedPath = path;
+                        importBtn.disabled = false;
+                        status.textContent = `Geselecteerd: ${path || '(root)'}`;
+                    }));
+                } catch (e) {
+                    status.textContent = 'Fout: ' + e.message;
+                }
+            });
+            left.appendChild(row);
+        }
+    } catch (e) {
+        left.innerHTML = `<p class="p-3 text-red-500">Fout: ${escapeHtml(e.message)}</p>`;
+    }
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderBrowserTree(nodes, parent, onPick) {
+    const ul = document.createElement('ul');
+    ul.className = 'pl-3';
+    for (const n of nodes) {
+        const li = document.createElement('li');
+        li.className = 'mb-0.5';
+        const row = document.createElement('div');
+        row.className = 'flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 hover:bg-amber-50';
+        row.dataset.testid = 'browser-row';
+        const label = document.createElement('span');
+        label.className = 'flex-1 truncate';
+        label.textContent = (n.type === 'folder' ? '📁 ' : '· ') + n.name;
+        row.appendChild(label);
+        let isOpen = false;
+        let kids = null;
+        row.addEventListener('click', () => {
+            ul.querySelectorAll('div.bg-amber-100').forEach(d => d.classList.remove('bg-amber-100'));
+            row.classList.add('bg-amber-100');
+            onPick(n.path);
+            if (n.type === 'folder') {
+                if (!kids) {
+                    kids = renderBrowserTree(n.children || [], n.path, onPick);
+                    li.appendChild(kids);
+                    isOpen = true;
+                } else {
+                    isOpen = !isOpen;
+                    kids.style.display = isOpen ? '' : 'none';
+                }
+            }
+        });
+        li.appendChild(row);
+        ul.appendChild(li);
+    }
+    return ul;
+}
+
+async function refreshLink() {
+    if (!state.activeFile || !state.activeFile.is_linked) return;
+    try {
+        await api('POST', apiUrl('/refresh-link'), { path: state.activeFile.path });
+        await openFile(state.activeFile.path);
+    } catch (e) { alert('Refresh mislukt: ' + e.message); }
 }
 
 async function loadLastCompileLog() {

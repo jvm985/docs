@@ -29,6 +29,8 @@ class FileService
         'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'pdf',
     ];
 
+    public function __construct(private LinkRegistry $links) {}
+
     public function basePath(Project $project): string
     {
         $path = storage_path('app/private/'.$project->filesPath());
@@ -51,11 +53,12 @@ class FileService
     public function tree(Project $project): array
     {
         $base = $this->basePath($project);
+        $links = $this->links->all($project);
 
-        return $this->readDir($base, '');
+        return $this->readDir($base, '', $links);
     }
 
-    private function readDir(string $base, string $relative): array
+    private function readDir(string $base, string $relative, array $links = []): array
     {
         $abs = $relative === '' ? $base : $base.'/'.$relative;
         if (! is_dir($abs)) {
@@ -70,11 +73,13 @@ class FileService
             $rel = $relative === '' ? $name : $relative.'/'.$name;
             $full = $abs.'/'.$name;
             if (is_dir($full)) {
+                $children = $this->readDir($base, $rel, $links);
                 $entries[] = [
                     'type' => 'folder',
                     'name' => $name,
                     'path' => $rel,
-                    'children' => $this->readDir($base, $rel),
+                    'children' => $children,
+                    'is_linked' => $this->folderHasLink($rel, $links),
                 ];
             } else {
                 $entries[] = [
@@ -83,6 +88,7 @@ class FileService
                     'path' => $rel,
                     'extension' => strtolower(pathinfo($name, PATHINFO_EXTENSION)),
                     'size' => @filesize($full) ?: 0,
+                    'is_linked' => isset($links[$rel]),
                 ];
             }
         }
@@ -96,6 +102,18 @@ class FileService
         });
 
         return $entries;
+    }
+
+    private function folderHasLink(string $folder, array $links): bool
+    {
+        $prefix = $folder.'/';
+        foreach (array_keys($links) as $key) {
+            if ($key === $folder || str_starts_with($key, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function readFile(Project $project, string $path): array

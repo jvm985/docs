@@ -64,6 +64,13 @@ bijvb in latex: bestanden uit eigen project: \include{"templates/cursus.tex"}
 - voor R: toon in de output ook de lijn R code die gezorgd heeft voor de output. zorg voor een andere kleur voor r code en r output zodat het duidelijk leesbaar is.
 
 
+== to do ==
+
+bij upload: als gebruiker daarop klikt, moet hij kunnen kiezen tussen: 
+- map van schijf
+- bestanden van schijf
+- map/bestand van met hem gedeeld project
+- in project tree: een map/bestand van gedeeld project, is altijd read only kopie van het origineel. net zoals in overleaf moet bovenaan de editor een knop komen "refresh" om het bestand opnieuw te kopieren uit het originele project.
 
 
 

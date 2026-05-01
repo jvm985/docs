@@ -160,18 +160,20 @@ test('public read project is accessible to outsider', function () {
         ->assertOk();
 });
 
-test('user can copy a file from another accessible project', function () {
+test('user can import a file from another accessible project', function () {
     $source = Project::factory()->for($this->user)->create();
     $this->files->create($source, 'template.tex', 'file', '\\documentclass{article}');
 
     $this->actingAs($this->user)
-        ->postJson("/api/projects/{$this->project->id}/copy-from", [
+        ->postJson("/api/projects/{$this->project->id}/import", [
             'source_project_id' => $source->id,
             'source_path' => 'template.tex',
             'target_parent' => '',
+            'mode' => 'link',
         ])
         ->assertOk()
-        ->assertJsonPath('path', 'template.tex');
+        ->assertJsonPath('path', 'template.tex')
+        ->assertJsonPath('mode', 'link');
 
     expect(file_exists(storage_path('app/private/'.$this->project->filesPath('template.tex'))))->toBeTrue();
 });

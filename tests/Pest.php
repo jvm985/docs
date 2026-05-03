@@ -6,10 +6,14 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {
-        $dir = storage_path('app/private/projects');
+        // Redirect storage to a per-suite test dir so tests never touch real user files.
+        $testStorage = storage_path('framework/testing/disks');
+        app()->useStoragePath($testStorage);
+        $dir = $testStorage.'/app/private/projects';
         if (is_dir($dir)) {
             removeDirRecursive($dir);
         }
+        @mkdir($dir, 0775, true);
     })
     ->in('Feature', 'Browser');
 

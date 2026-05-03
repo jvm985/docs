@@ -232,11 +232,12 @@ class CompileService
                 $cmd[0] = $resolved;
             }
         }
-        $home = getenv('HOME') ?: sys_get_temp_dir();
-        $cacheDir = $home.'/.cache';
-        if (! is_dir($cacheDir)) {
-            @mkdir($cacheDir, 0775, true);
+        $home = getenv('HOME') ?: '';
+        if ($home === '' || ! is_writable($home)) {
+            $home = sys_get_temp_dir().'/docs-compile';
         }
+        $cacheDir = $home.'/.cache';
+        @mkdir($cacheDir, 0775, true);
         $env = [
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
             'HOME' => $home,

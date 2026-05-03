@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['user_id', 'name', 'public_permission'])]
+#[Fillable(['user_id', 'name', 'public_permission', 'primary_file', 'compiler'])]
 class Project extends Model
 {
     /** @use HasFactory<ProjectFactory> */

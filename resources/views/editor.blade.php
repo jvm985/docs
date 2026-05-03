@@ -25,6 +25,8 @@
      data-project-name="{{ $project->name }}"
      data-can-write="{{ $canWrite ? '1' : '0' }}"
      data-is-owner="{{ $project->isOwnedBy(auth()->user()) ? '1' : '0' }}"
+     data-primary-file="{{ $project->primary_file ?? '' }}"
+     data-compiler="{{ $project->compiler ?? 'pdflatex' }}"
      class="flex h-full flex-col">
 
     <header class="flex h-10 items-center justify-between border-b bg-white px-4">

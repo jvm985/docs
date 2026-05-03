@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY resources/fonts/ /usr/local/share/fonts/project/
 RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static \
     && cp /usr/local/share/fonts/project/Quicksand-*.ttf /usr/share/fonts/truetype/Quicksand/static/ \
+    && cp /usr/local/share/fonts/project/Asap-*.ttf /usr/share/fonts/truetype/Quicksand/static/ \
     && fc-cache -fv > /dev/null
 
 # Typst (single static binary)

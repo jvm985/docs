@@ -32,6 +32,32 @@ class CompileController extends Controller
         ]);
     }
 
+    public function updateSettings(Request $request, Project $project)
+    {
+        if (! $project->canWrite($request->user())) {
+            abort(403);
+        }
+        $data = $request->validate([
+            'primary_file' => ['nullable', 'string'],
+            'compiler' => ['nullable', 'in:pdflatex,xelatex,lualatex'],
+        ]);
+        $attrs = [];
+        if ($request->has('primary_file')) {
+            $attrs['primary_file'] = $data['primary_file'] ?: null;
+        }
+        if (! empty($data['compiler'])) {
+            $attrs['compiler'] = $data['compiler'];
+        }
+        if ($attrs) {
+            $project->update($attrs);
+        }
+
+        return response()->json([
+            'primary_file' => $project->primary_file,
+            'compiler' => $project->compiler,
+        ]);
+    }
+
     public function lastLog(Request $request, Project $project)
     {
         Gate::authorize('view', $project);

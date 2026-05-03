@@ -27,7 +27,8 @@ const state = {
     expanded: new Set(),
     activePath: null,
     activeFile: null,
-    compiler: 'pdflatex',
+    compiler: app.dataset.compiler || 'pdflatex',
+    primaryFile: app.dataset.primaryFile || null,
     rOutput: [],
     rVars: [],
     rPlots: [],
@@ -138,6 +139,13 @@ function renderTreeNode(node) {
         label.textContent = node.name;
         label.dataset.testid = 'file-label';
         row.appendChild(label);
+        if (state.primaryFile === node.path) {
+            const star = document.createElement('span');
+            star.className = 'ml-1 text-amber-500';
+            star.textContent = '★';
+            star.title = 'Primair bestand: dit wordt gecompileerd';
+            row.appendChild(star);
+        }
         if (node.is_linked) {
             const link = document.createElement('span');
             link.className = 'ml-1 text-sky-500';
@@ -370,7 +378,12 @@ function renderToolbar() {
                 if (c === state.compiler) opt.selected = true;
                 sel.appendChild(opt);
             }
-            sel.addEventListener('change', () => state.compiler = sel.value);
+            sel.addEventListener('change', async () => {
+                state.compiler = sel.value;
+                if (CAN_WRITE) {
+                    try { await api('PATCH', apiUrl('/settings'), { compiler: sel.value }); } catch (e) {}
+                }
+            });
             toolbar.appendChild(sel);
         }
         const btn = document.createElement('button');
@@ -547,12 +560,27 @@ function showContextMenu(e, node) {
     };
     item('Hernoem', () => renamePath(node.path));
     item('Verwijder', () => deletePath(node.path));
+    if (node.type === 'file' && COMPILABLE.includes(node.extension)) {
+        const isPrimary = state.primaryFile === node.path;
+        item(isPrimary ? '★ Niet langer primair' : '☆ Maak primair', () => togglePrimaryFile(node.path));
+    }
     document.body.appendChild(menu);
     contextMenuEl = menu;
     setTimeout(() => document.addEventListener('click', closeContextMenu, { once: true }), 0);
 }
 function closeContextMenu() {
     if (contextMenuEl) { contextMenuEl.remove(); contextMenuEl = null; }
+}
+
+async function togglePrimaryFile(path) {
+    const next = state.primaryFile === path ? null : path;
+    try {
+        const res = await api('PATCH', apiUrl('/settings'), { primary_file: next ?? '' });
+        state.primaryFile = res.primary_file;
+        await loadTree(state.activePath);
+    } catch (e) {
+        alert('Kon primair bestand niet opslaan: ' + e.message);
+    }
 }
 
 async function runCompileOrR() {
@@ -563,13 +591,19 @@ async function runCompileOrR() {
 
 async function compile(clean = false) {
     if (!state.activeFile) return;
-    if (!COMPILABLE.includes(state.activeFile.extension)) return;
+    let path = state.activeFile.path;
+    let ext = state.activeFile.extension;
+    if (state.primaryFile) {
+        path = state.primaryFile;
+        ext = path.split('.').pop().toLowerCase();
+    }
+    if (!COMPILABLE.includes(ext)) return;
     await saveImmediately();
     document.getElementById('compile-status').textContent = clean ? 'schoon compileren…' : 'bezig…';
     try {
         const res = await api('POST', apiUrl('/compile'), {
-            path: state.activeFile.path,
-            compiler: state.activeFile.extension === 'tex' ? state.compiler : null,
+            path,
+            compiler: ext === 'tex' ? state.compiler : null,
             clean,
         });
         document.getElementById('compile-status').textContent = res.status === 'success' ? 'klaar' : 'fout';

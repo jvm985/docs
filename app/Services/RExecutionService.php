@@ -79,6 +79,73 @@ class RExecutionService
         ];
     }
 
+    public function inspect(Project $project, User $user, string $name, int $limit = 1000): array
+    {
+        $sessionDir = $this->sessionDir($project, $user);
+        $workspaceFile = $sessionDir.'/workspace.RData';
+        if (! is_file($workspaceFile)) {
+            throw new \RuntimeException('Geen R-sessie gevonden. Run eerst R-code.');
+        }
+        if (! preg_match('/^[A-Za-z._][A-Za-z0-9._]*$/', $name)) {
+            throw new \RuntimeException('Ongeldige variabelenaam.');
+        }
+        $sharedLib = $this->sharedLibPath();
+        $this->ensureDir($sharedLib);
+        $script = <<<R
+            local({
+                load({$this->rString($workspaceFile)}, envir = environment())
+                if (!exists("{$name}", inherits = FALSE)) {
+                    cat('{"error":"variabele niet gevonden"}'); return(invisible())
+                }
+                v <- get("{$name}")
+                if (!is.data.frame(v)) {
+                    cat('{"error":"niet een data frame"}'); return(invisible())
+                }
+                n <- nrow(v); take <- min(n, {$limit}L)
+                v2 <- v[seq_len(take), , drop = FALSE]
+                payload <- list(
+                    name = "{$name}",
+                    n_rows = n,
+                    n_cols = ncol(v2),
+                    truncated = n > take,
+                    columns = colnames(v2),
+                    types = vapply(v2, function(x) class(x)[1], character(1)),
+                    rows = lapply(seq_len(nrow(v2)), function(i) {
+                        lapply(seq_len(ncol(v2)), function(j) {
+                            x <- v2[i, j]
+                            if (is.factor(x)) x <- as.character(x)
+                            if (is.null(x) || (length(x) == 1 && is.na(x))) NA else x
+                        })
+                    })
+                )
+                if (requireNamespace("jsonlite", quietly = TRUE)) {
+                    cat(jsonlite::toJSON(payload, na = "null", auto_unbox = TRUE))
+                } else {
+                    cat('{"error":"jsonlite ontbreekt"}')
+                }
+            })
+            R;
+        $env = [
+            'HOME' => $sessionDir,
+            'XDG_CACHE_HOME' => $sessionDir.'/.cache',
+            'TMPDIR' => sys_get_temp_dir(),
+            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+            'R_LIBS_USER' => $sharedLib,
+        ];
+        $process = new Process(['Rscript', '--vanilla', '-e', $script], $sessionDir, $env, null, 30);
+        $process->run();
+        $out = trim($process->getOutput());
+        $data = json_decode($out, true);
+        if (! is_array($data)) {
+            throw new \RuntimeException('Kon variabele niet inlezen: '.($process->getErrorOutput() ?: substr($out, 0, 200)));
+        }
+        if (isset($data['error'])) {
+            throw new \RuntimeException($data['error']);
+        }
+
+        return $data;
+    }
+
     public function reset(Project $project, User $user): void
     {
         $sessionDir = $this->sessionDir($project, $user);

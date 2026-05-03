@@ -69,6 +69,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/r/execute', [RController::class, 'execute']);
         Route::post('/r/reset', [RController::class, 'reset']);
         Route::get('/r/state', [RController::class, 'state']);
+        Route::post('/r/inspect', [RController::class, 'inspect']);
     });
 
     Route::get('/api/my-projects', fn () => response()->json(

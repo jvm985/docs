@@ -24,6 +24,16 @@ class RController extends Controller
         return response()->json($result);
     }
 
+    public function inspect(Request $request, Project $project)
+    {
+        Gate::authorize('view', $project);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:128'],
+        ]);
+
+        return response()->json($this->r->inspect($project, $request->user(), $data['name']));
+    }
+
     public function reset(Request $request, Project $project)
     {
         Gate::authorize('view', $project);

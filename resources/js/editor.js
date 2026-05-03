@@ -255,6 +255,7 @@ async function openFile(path) {
     document.getElementById('editor-mount').classList.add('hidden');
     document.getElementById('image-viewer').classList.add('hidden');
     document.getElementById('binary-notice').classList.add('hidden');
+    document.getElementById('dataframe-viewer').classList.add('hidden');
 
     if (data.kind === 'text') {
         document.getElementById('editor-mount').classList.remove('hidden');
@@ -766,6 +767,78 @@ function renderBrowserTree(nodes, parent, onPick) {
     return ul;
 }
 
+async function openDataFrameViewer(name) {
+    const view = document.getElementById('dataframe-viewer');
+    document.getElementById('editor-empty').classList.add('hidden');
+    document.getElementById('editor-mount').classList.add('hidden');
+    document.getElementById('image-viewer').classList.add('hidden');
+    document.getElementById('binary-notice').classList.add('hidden');
+    view.classList.remove('hidden');
+    view.classList.add('flex');
+    view.innerHTML = `<div class="flex-1 flex items-center justify-center text-xs text-gray-400">Data laden…</div>`;
+    document.getElementById('active-file-name').textContent = name + ' (data frame)';
+    document.getElementById('readonly-hint').classList.remove('hidden');
+    document.getElementById('readonly-hint').textContent = '— alleen lezen';
+    state.activeFile = null;
+    state.activePath = null;
+    try {
+        const res = await api('POST', apiUrl('/r/inspect'), { name });
+        renderDataFrame(view, res);
+    } catch (e) {
+        view.innerHTML = `<div class="p-4 text-sm text-red-500">Fout: ${escapeHtml(e.message)}</div>`;
+    }
+}
+
+function renderDataFrame(host, data) {
+    host.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'flex items-center justify-between border-b bg-gray-50 px-3 py-1 text-xs text-gray-600';
+    const truncated = data.truncated ? ` (eerste ${data.rows.length} van ${data.n_rows})` : ` (${data.n_rows})`;
+    head.innerHTML = `<span><span class="font-mono font-bold text-blue-700">${escapeHtml(data.name)}</span> · ${data.n_cols} × ${data.n_rows}${truncated}</span>`;
+    host.appendChild(head);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'flex-1 overflow-auto';
+    const table = document.createElement('table');
+    table.className = 'min-w-full border-collapse text-xs';
+    const thead = document.createElement('thead');
+    thead.className = 'sticky top-0 bg-gray-100 text-gray-700';
+    const trh = document.createElement('tr');
+    const idxTh = document.createElement('th'); idxTh.className = 'border-b border-r px-2 py-1 text-right text-gray-400'; idxTh.textContent = '#';
+    trh.appendChild(idxTh);
+    data.columns.forEach((col, i) => {
+        const th = document.createElement('th');
+        th.className = 'border-b border-r px-2 py-1 text-left font-semibold';
+        th.innerHTML = `${escapeHtml(col)}<div class="text-[10px] font-normal text-gray-400">${escapeHtml(data.types[i] || '')}</div>`;
+        trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    data.rows.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        tr.className = i % 2 ? 'bg-white' : 'bg-gray-50';
+        const idx = document.createElement('td');
+        idx.className = 'border-b border-r px-2 py-0.5 text-right text-gray-400';
+        idx.textContent = (i + 1);
+        tr.appendChild(idx);
+        row.forEach(cell => {
+            const td = document.createElement('td');
+            td.className = 'border-b border-r px-2 py-0.5 font-mono';
+            if (cell === null || cell === undefined) {
+                td.innerHTML = '<span class="text-gray-300">NA</span>';
+            } else {
+                td.textContent = String(cell);
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    host.appendChild(wrap);
+}
+
 async function refreshLink() {
     if (!state.activeFile || !state.activeFile.is_linked) return;
     try {
@@ -867,11 +940,18 @@ function renderRSidebar() {
     } else {
         for (const v of state.rVars) {
             const row = document.createElement('div');
-            row.className = 'mb-1 flex items-baseline gap-2 rounded px-2 py-0.5 text-xs hover:bg-gray-50';
-            const a = document.createElement('span'); a.className = 'font-mono font-bold text-blue-600'; a.textContent = v.name;
+            const isDF = v.class === 'data.frame' || v.class === 'tbl_df' || v.class === 'tbl' || v.class === 'data.table';
+            row.className = 'mb-1 flex items-baseline gap-2 rounded px-2 py-0.5 text-xs hover:bg-gray-50' + (isDF ? ' cursor-pointer' : '');
+            const a = document.createElement('span');
+            a.className = 'font-mono font-bold ' + (isDF ? 'text-blue-700 underline' : 'text-blue-600');
+            a.textContent = v.name;
             const b = document.createElement('span'); b.className = 'text-gray-400'; b.textContent = v.class;
             const c = document.createElement('span'); c.className = 'ml-auto max-w-xs truncate text-gray-500'; c.textContent = v.preview;
             row.append(a, b, c);
+            if (isDF) {
+                row.title = 'Klik om data te bekijken';
+                row.addEventListener('click', () => openDataFrameViewer(v.name));
+            }
             varsEl.appendChild(row);
         }
     }

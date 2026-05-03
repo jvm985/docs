@@ -66,6 +66,7 @@
                 <div id="editor-mount" class="hidden h-full w-full"></div>
                 <div id="image-viewer" class="hidden h-full w-full overflow-auto bg-gray-100 p-4 text-center"></div>
                 <div id="binary-notice" class="hidden h-full w-full p-4 text-sm text-gray-500"></div>
+                <div id="dataframe-viewer" class="hidden h-full w-full flex-col bg-white"></div>
             </div>
         </main>
 

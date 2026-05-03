@@ -55,7 +55,7 @@ RUN mkdir -p /tmp/soul-build /usr/share/texlive/texmf-dist/tex/latex/soul \
     && unzip -j -o /tmp/soul.zip 'soul/soul.dtx' 'soul/soul-ori.dtx' 'soul/soul.ins' \
         -d /tmp/soul-build/ \
     && cd /tmp/soul-build && latex soul.ins >/dev/null \
-    && cp soul.sty /usr/share/texlive/texmf-dist/tex/latex/soul/ \
+    && cp *.sty /usr/share/texlive/texmf-dist/tex/latex/soul/ \
     && rm -rf /tmp/soul.zip /tmp/soul-build \
     && mktexlsr
 

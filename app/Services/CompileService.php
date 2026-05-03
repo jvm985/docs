@@ -256,10 +256,13 @@ class CompileService
         }
         $cacheDir = $home.'/.cache';
         @mkdir($cacheDir, 0775, true);
+        $sharedLib = storage_path('app/r-site-library');
+        @mkdir($sharedLib, 0775, true);
         $env = [
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
             'HOME' => $home,
             'XDG_CACHE_HOME' => $cacheDir,
+            'R_LIBS_USER' => $sharedLib,
         ];
         $process = new Process($cmd, $cwd, $env, null, $timeout);
         try {

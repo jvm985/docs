@@ -40,12 +40,15 @@ class RExecutionService
         $wrapperFile = $sessionDir.'/wrapper.R';
         @file_put_contents($wrapperFile, $script);
 
+        $sharedLib = $this->sharedLibPath();
+        $this->ensureDir($sharedLib);
         $env = [
             'HOME' => $sessionDir,
             'XDG_CACHE_HOME' => $sessionDir.'/.cache',
             'XDG_CONFIG_HOME' => $sessionDir.'/.config',
             'TMPDIR' => sys_get_temp_dir(),
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+            'R_LIBS_USER' => $sharedLib,
         ];
         $this->ensureDir($env['XDG_CACHE_HOME']);
         $this->ensureDir($env['XDG_CONFIG_HOME']);
@@ -258,6 +261,11 @@ class RExecutionService
     public function sessionDir(Project $project, User $user): string
     {
         return storage_path('app/private/'.$project->userRSessionPath($user->id));
+    }
+
+    public function sharedLibPath(): string
+    {
+        return storage_path('app/r-site-library');
     }
 
     private function ensureDir(string $dir): void

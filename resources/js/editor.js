@@ -852,7 +852,7 @@ function renderRSidebar() {
         plotEl.appendChild(nav);
         const img = document.createElement('img');
         img.src = state.rPlots[Math.min(state.plotIndex, state.rPlots.length-1)];
-        img.className = 'mx-auto max-w-full cursor-zoom-in rounded border';
+        img.className = 'min-h-0 w-full flex-1 cursor-zoom-in self-center rounded border object-contain';
         img.addEventListener('click', () => openPlotZoom(img.src));
         plotEl.appendChild(img);
     } else {

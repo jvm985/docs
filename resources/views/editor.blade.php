@@ -97,7 +97,7 @@
                         <button class="r-tab px-3 py-1 font-medium text-gray-500" data-tab="plots">Plots <span id="plot-count" class="ml-1 hidden rounded-full bg-amber-100 px-1.5 text-amber-700"></span></button>
                     </div>
                     <div id="r-vars" class="flex-1 overflow-y-auto p-2 text-xs"></div>
-                    <div id="r-plots" class="hidden flex-1 overflow-y-auto p-2"></div>
+                    <div id="r-plots" class="hidden flex-1 flex-col overflow-hidden p-2"></div>
                 </div>
             </div>
         </aside>

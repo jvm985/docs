@@ -18,8 +18,9 @@ class CompileController extends Controller
         $data = $request->validate([
             'path' => ['required', 'string'],
             'compiler' => ['nullable', 'string'],
+            'clean' => ['nullable', 'boolean'],
         ]);
-        $result = $this->compile->compile($project, $request->user(), $data['path'], $data['compiler'] ?? null);
+        $result = $this->compile->compile($project, $request->user(), $data['path'], $data['compiler'] ?? null, (bool) ($data['clean'] ?? false));
 
         return response()->json([
             'status' => $result['status'],

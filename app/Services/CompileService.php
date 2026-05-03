@@ -18,7 +18,7 @@ class CompileService
         return in_array($extension, ['tex', 'md', 'rmd', 'typ'], true);
     }
 
-    public function compile(Project $project, User $user, string $relPath, ?string $compiler = null): array
+    public function compile(Project $project, User $user, string $relPath, ?string $compiler = null, bool $clean = false): array
     {
         $abs = $this->files->absolutePath($project, $relPath);
         if (! is_file($abs)) {
@@ -31,6 +31,9 @@ class CompileService
 
         $sourceDir = $this->files->basePath($project);
         $sourceRel = $this->files->validateRelativePath($relPath);
+        if ($clean) {
+            $this->wipeOutputDir($project, $user, $sourceRel);
+        }
         $outputDir = $this->ensureOutputDir($project, $user, $sourceRel);
 
         return match ($ext) {
@@ -205,6 +208,21 @@ class CompileService
         }
 
         return $dir;
+    }
+
+    private function wipeOutputDir(Project $project, User $user, string $relPath): void
+    {
+        $dir = $this->outputDir($project, $user, $relPath);
+        if (! is_dir($dir)) {
+            return;
+        }
+        $iter = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($iter as $entry) {
+            $entry->isDir() ? @rmdir($entry->getPathname()) : @unlink($entry->getPathname());
+        }
     }
 
     private function outputDir(Project $project, User $user, string $relPath): string

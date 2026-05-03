@@ -377,8 +377,18 @@ function renderToolbar() {
         btn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600';
         btn.textContent = 'Compileren';
         btn.dataset.testid = 'compile-btn';
-        btn.addEventListener('click', compile);
+        btn.addEventListener('click', () => compile(false));
         toolbar.appendChild(btn);
+
+        if (ext === 'tex') {
+            const cleanBtn = document.createElement('button');
+            cleanBtn.className = 'rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100';
+            cleanBtn.textContent = 'Schoon';
+            cleanBtn.title = 'Verwijder oude .aux/.toc/.log en compileer opnieuw';
+            cleanBtn.dataset.testid = 'clean-compile-btn';
+            cleanBtn.addEventListener('click', () => compile(true));
+            toolbar.appendChild(cleanBtn);
+        }
 
         const logBtn = document.createElement('button');
         logBtn.className = 'rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-100';
@@ -547,19 +557,20 @@ function closeContextMenu() {
 
 async function runCompileOrR() {
     if (!state.activeFile) return;
-    if (COMPILABLE.includes(state.activeFile.extension)) await compile();
+    if (COMPILABLE.includes(state.activeFile.extension)) await compile(false);
     else if (RUNNABLE.includes(state.activeFile.extension)) await runR();
 }
 
-async function compile() {
+async function compile(clean = false) {
     if (!state.activeFile) return;
     if (!COMPILABLE.includes(state.activeFile.extension)) return;
     await saveImmediately();
-    document.getElementById('compile-status').textContent = 'bezig…';
+    document.getElementById('compile-status').textContent = clean ? 'schoon compileren…' : 'bezig…';
     try {
         const res = await api('POST', apiUrl('/compile'), {
             path: state.activeFile.path,
             compiler: state.activeFile.extension === 'tex' ? state.compiler : null,
+            clean,
         });
         document.getElementById('compile-status').textContent = res.status === 'success' ? 'klaar' : 'fout';
         showCompileOutput(res);
@@ -609,15 +620,12 @@ async function openProjectBrowser() {
     status.className = 'text-gray-500';
     const actions = document.createElement('div');
     actions.className = 'flex items-center gap-3';
-    const modeWrap = document.createElement('label');
-    modeWrap.className = 'flex items-center gap-1';
-    modeWrap.innerHTML = `<input type="checkbox" id="link-mode" checked> <span>Houd gelinkt aan origineel</span>`;
     const importBtn = document.createElement('button');
     importBtn.className = 'rounded bg-amber-500 px-3 py-1 font-medium text-white hover:bg-amber-600 disabled:opacity-50';
     importBtn.textContent = 'Importeer';
     importBtn.disabled = true;
     importBtn.dataset.testid = 'import-confirm';
-    actions.append(modeWrap, importBtn);
+    actions.append(importBtn);
     footer.append(status, actions);
     right.appendChild(footer);
 
@@ -629,12 +637,11 @@ async function openProjectBrowser() {
         importBtn.disabled = true;
         status.textContent = 'Bezig met importeren…';
         try {
-            const mode = document.getElementById('link-mode').checked ? 'link' : 'copy';
             await api('POST', apiUrl('/import'), {
                 source_project_id: selectedProject.id,
                 source_path: selectedPath,
                 target_parent: '',
-                mode,
+                mode: 'copy',
             });
             overlay.remove();
             await loadTree(state.activePath);

@@ -29,7 +29,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-xetex \
     texlive-luatex \
     texlive-fonts-recommended \
+    texlive-fonts-extra \
     texlive-lang-european \
+    texlive-science \
+    texlive-bibtex-extra \
     lmodern \
     fontconfig \
     pandoc \

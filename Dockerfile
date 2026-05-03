@@ -38,9 +38,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev libssl-dev libxml2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Project fonts (e.g. Quicksand, used by some imported LaTeX projects)
+# Project fonts (e.g. Quicksand, used by some imported LaTeX projects).
+# Mirror the legacy Overleaf path so imported tex with explicit Path= works.
 COPY resources/fonts/ /usr/local/share/fonts/project/
-RUN fc-cache -fv > /dev/null
+RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static \
+    && cp /usr/local/share/fonts/project/Quicksand-*.ttf /usr/share/fonts/truetype/Quicksand/static/ \
+    && fc-cache -fv > /dev/null
 
 # Typst (single static binary)
 RUN curl -fsSL https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz \

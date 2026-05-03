@@ -10,7 +10,7 @@ class RExecutionService
 {
     public function __construct(private FileService $files) {}
 
-    public function execute(Project $project, User $user, string $code): array
+    public function execute(Project $project, User $user, string $code, ?string $scriptPath = null): array
     {
         $sessionDir = $this->sessionDir($project, $user);
         $plotDir = $sessionDir.'/plots';
@@ -23,7 +23,19 @@ class RExecutionService
         $codeFile = $sessionDir.'/run.R';
         @file_put_contents($codeFile, $code);
 
-        $cwd = $this->files->basePath($project);
+        $base = $this->files->basePath($project);
+        $cwd = $base;
+        if ($scriptPath !== null && trim($scriptPath) !== '') {
+            try {
+                $rel = $this->files->validateRelativePath($scriptPath);
+                $candidate = $rel === '' ? $base : dirname($base.'/'.$rel);
+                if (is_dir($candidate)) {
+                    $cwd = $candidate;
+                }
+            } catch (\Throwable $e) {
+                // fall back to project root
+            }
+        }
         $script = $this->buildWrapper($workspaceFile, $codeFile, $plotDir, $cwd);
         $wrapperFile = $sessionDir.'/wrapper.R';
         @file_put_contents($wrapperFile, $script);

@@ -787,7 +787,7 @@ async function runR() {
     if (!code.trim()) return;
     document.getElementById('compile-status').textContent = 'R draait…';
     try {
-        const res = await api('POST', apiUrl('/r/execute'), { code });
+        const res = await api('POST', apiUrl('/r/execute'), { code, path: state.activeFile.path });
         document.getElementById('compile-status').textContent = '';
         appendROutput(res.output || []);
         state.rVars = res.variables || [];

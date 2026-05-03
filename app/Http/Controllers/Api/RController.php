@@ -17,8 +17,9 @@ class RController extends Controller
         Gate::authorize('view', $project);
         $data = $request->validate([
             'code' => ['required', 'string'],
+            'path' => ['nullable', 'string'],
         ]);
-        $result = $this->r->execute($project, $request->user(), $data['code']);
+        $result = $this->r->execute($project, $request->user(), $data['code'], $data['path'] ?? null);
 
         return response()->json($result);
     }

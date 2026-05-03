@@ -49,6 +49,14 @@ RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static \
     && cp /usr/local/share/fonts/project/Asap-*.ttf /usr/share/fonts/truetype/Quicksand/static/ \
     && fc-cache -fv > /dev/null
 
+# CTAN packages not shipped by Debian's texlive
+RUN mkdir -p /usr/share/texlive/texmf-dist/tex/latex/soul \
+    && curl -fsSL https://mirrors.ctan.org/macros/latex/contrib/soul.zip -o /tmp/soul.zip \
+    && unzip -j -o /tmp/soul.zip 'soul/soul.sty' 'soul/soulutf8.sty' \
+        -d /usr/share/texlive/texmf-dist/tex/latex/soul/ \
+    && rm /tmp/soul.zip \
+    && mktexlsr
+
 # Typst (single static binary)
 RUN curl -fsSL https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz \
     && tar -xJf /tmp/typst.tar.xz -C /tmp \

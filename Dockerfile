@@ -50,11 +50,13 @@ RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static \
     && fc-cache -fv > /dev/null
 
 # CTAN packages not shipped by Debian's texlive
-RUN mkdir -p /usr/share/texlive/texmf-dist/tex/latex/soul \
+RUN mkdir -p /tmp/soul-build /usr/share/texlive/texmf-dist/tex/latex/soul \
     && curl -fsSL https://mirrors.ctan.org/macros/generic/soul.zip -o /tmp/soul.zip \
-    && unzip -j -o /tmp/soul.zip 'soul/soul.sty' \
-        -d /usr/share/texlive/texmf-dist/tex/latex/soul/ \
-    && rm /tmp/soul.zip \
+    && unzip -j -o /tmp/soul.zip 'soul/soul.dtx' 'soul/soul-ori.dtx' 'soul/soul.ins' \
+        -d /tmp/soul-build/ \
+    && cd /tmp/soul-build && latex soul.ins >/dev/null \
+    && cp soul.sty /usr/share/texlive/texmf-dist/tex/latex/soul/ \
+    && rm -rf /tmp/soul.zip /tmp/soul-build \
     && mktexlsr
 
 # Typst (single static binary)

@@ -9,6 +9,12 @@ chown -R www-data:www-data /var/www/html/storage /var/www/html/public
 find /var/www/html/storage -type d -exec chmod 775 {} +
 find /var/www/html/storage -type f -exec chmod 664 {} +
 
+# Shared R library (bind-mounted from host); ensure www-data can write
+if [ -d /opt/r-site-library ]; then
+    chown -R www-data:www-data /opt/r-site-library 2>/dev/null || true
+    chmod 775 /opt/r-site-library 2>/dev/null || true
+fi
+
 # SQLite database lives in the storage volume (so it survives image rebuilds)
 DB_DIR=/var/www/html/storage/app/database
 DB_FILE=$DB_DIR/database.sqlite

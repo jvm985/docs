@@ -265,7 +265,7 @@ class RExecutionService
 
     public function sharedLibPath(): string
     {
-        return storage_path('app/r-site-library');
+        return env('R_LIB_DIR') ?: storage_path('app/r-site-library');
     }
 
     private function ensureDir(string $dir): void

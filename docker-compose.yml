@@ -7,6 +7,9 @@ services:
     volumes:
       - public:/var/www/html/public
       - storage:/var/www/html/storage
+      - ./r-site-library:/opt/r-site-library
+    environment:
+      R_LIB_DIR: /opt/r-site-library
     env_file: .env
 
   worker:
@@ -15,6 +18,9 @@ services:
     command: php artisan queue:work --sleep=3 --tries=3 --timeout=120
     volumes:
       - storage:/var/www/html/storage
+      - ./r-site-library:/opt/r-site-library
+    environment:
+      R_LIB_DIR: /opt/r-site-library
     env_file: .env
 
   nginx:

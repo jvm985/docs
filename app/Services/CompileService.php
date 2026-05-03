@@ -256,7 +256,7 @@ class CompileService
         }
         $cacheDir = $home.'/.cache';
         @mkdir($cacheDir, 0775, true);
-        $sharedLib = storage_path('app/r-site-library');
+        $sharedLib = env('R_LIB_DIR') ?: storage_path('app/r-site-library');
         @mkdir($sharedLib, 0775, true);
         $env = [
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',

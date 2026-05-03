@@ -226,7 +226,17 @@ class CompileService
 
     private function run(array $cmd, string $cwd, int $timeout): Process
     {
-        $process = new Process($cmd, $cwd, null, null, $timeout);
+        if (! empty($cmd) && ! str_contains($cmd[0], '/')) {
+            $resolved = $this->locate($cmd[0]);
+            if ($resolved !== null) {
+                $cmd[0] = $resolved;
+            }
+        }
+        $env = [
+            'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+            'HOME' => getenv('HOME') ?: sys_get_temp_dir(),
+        ];
+        $process = new Process($cmd, $cwd, $env, null, $timeout);
         try {
             $process->run();
         } catch (\Throwable $e) {
@@ -234,5 +244,22 @@ class CompileService
         }
 
         return $process;
+    }
+
+    private function locate(string $bin): ?string
+    {
+        static $cache = [];
+        if (array_key_exists($bin, $cache)) {
+            return $cache[$bin];
+        }
+        $path = getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin';
+        foreach (explode(PATH_SEPARATOR, $path) as $dir) {
+            $candidate = rtrim($dir, '/').'/'.$bin;
+            if (is_file($candidate) && is_executable($candidate)) {
+                return $cache[$bin] = $candidate;
+            }
+        }
+
+        return $cache[$bin] = null;
     }
 }

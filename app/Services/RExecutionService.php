@@ -23,11 +23,10 @@ class RExecutionService
         $codeFile = $sessionDir.'/run.R';
         @file_put_contents($codeFile, $code);
 
-        $script = $this->buildWrapper($workspaceFile, $codeFile, $plotDir);
+        $cwd = $this->files->basePath($project);
+        $script = $this->buildWrapper($workspaceFile, $codeFile, $plotDir, $cwd);
         $wrapperFile = $sessionDir.'/wrapper.R';
         @file_put_contents($wrapperFile, $script);
-
-        $cwd = $this->files->basePath($project);
 
         $env = [
             'HOME' => $sessionDir,
@@ -96,15 +95,18 @@ class RExecutionService
         ];
     }
 
-    private function buildWrapper(string $workspaceFile, string $codeFile, string $plotDir): string
+    private function buildWrapper(string $workspaceFile, string $codeFile, string $plotDir, string $projectDir): string
     {
         $ws = $this->rString($workspaceFile);
         $code = $this->rString($codeFile);
         $plots = $this->rString($plotDir);
         $varsOut = $this->rString(dirname($workspaceFile).'/vars.json');
+        $proj = $this->rString($projectDir);
 
         return <<<R
             local({
+                tryCatch(setwd($proj), error = function(e) {})
+
                 if (file.exists($ws)) {
                     tryCatch(load($ws, envir = .GlobalEnv), error = function(e) {})
                 }

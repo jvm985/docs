@@ -22,6 +22,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # System packages: tools, PHP build deps, LaTeX, Pandoc, R
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates unzip xz-utils git \
+    fontconfig \
     libsqlite3-dev sqlite3 libxml2-dev libonig-dev libicu-dev libzip-dev libpng-dev \
     texlive-latex-base \
     texlive-latex-recommended \
@@ -34,7 +35,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-science \
     texlive-bibtex-extra \
     lmodern \
-    fontconfig \
     pandoc \
     r-base \
     r-base-dev \
@@ -51,8 +51,8 @@ RUN mkdir -p /usr/share/fonts/truetype/Quicksand/static \
 
 # CTAN packages not shipped by Debian's texlive
 RUN mkdir -p /usr/share/texlive/texmf-dist/tex/latex/soul \
-    && curl -fsSL https://mirrors.ctan.org/macros/latex/contrib/soul.zip -o /tmp/soul.zip \
-    && unzip -j -o /tmp/soul.zip 'soul/soul.sty' 'soul/soulutf8.sty' \
+    && curl -fsSL https://mirrors.ctan.org/macros/generic/soul.zip -o /tmp/soul.zip \
+    && unzip -j -o /tmp/soul.zip 'soul/soul.sty' \
         -d /usr/share/texlive/texmf-dist/tex/latex/soul/ \
     && rm /tmp/soul.zip \
     && mktexlsr

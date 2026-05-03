@@ -232,9 +232,15 @@ class CompileService
                 $cmd[0] = $resolved;
             }
         }
+        $home = getenv('HOME') ?: sys_get_temp_dir();
+        $cacheDir = $home.'/.cache';
+        if (! is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0775, true);
+        }
         $env = [
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
-            'HOME' => getenv('HOME') ?: sys_get_temp_dir(),
+            'HOME' => $home,
+            'XDG_CACHE_HOME' => $cacheDir,
         ];
         $process = new Process($cmd, $cwd, $env, null, $timeout);
         try {

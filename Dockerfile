@@ -31,11 +31,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-fonts-recommended \
     texlive-lang-european \
     lmodern \
+    fontconfig \
     pandoc \
     r-base \
     r-base-dev \
     libcurl4-openssl-dev libssl-dev libxml2-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Project fonts (e.g. Quicksand, used by some imported LaTeX projects)
+COPY resources/fonts/ /usr/local/share/fonts/project/
+RUN fc-cache -fv > /dev/null
 
 # Typst (single static binary)
 RUN curl -fsSL https://github.com/typst/typst/releases/latest/download/typst-x86_64-unknown-linux-musl.tar.xz -o /tmp/typst.tar.xz \

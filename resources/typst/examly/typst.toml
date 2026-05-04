@@ -1,0 +1,7 @@
+[package]
+name = "examly"
+version = "0.1.0"
+entrypoint = "lib.typ"
+authors = ["docs.irishof.cloud"]
+license = "MIT"
+description = "Lichtgewicht Typst-pakket voor toetsen en examens (zoals LaTeX exam class)."

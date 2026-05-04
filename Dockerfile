@@ -67,6 +67,19 @@ RUN curl -fsSL https://github.com/typst/typst/releases/latest/download/typst-x86
     && chmod +x /usr/local/bin/typst \
     && rm -rf /tmp/typst*
 
+# Local Typst packages (mirror to both XDG data dirs so typst always finds them)
+COPY resources/typst/ /usr/local/share/typst/packages/local/_src/
+RUN mkdir -p /usr/local/share/typst/packages/local /usr/share/typst/packages/local \
+    && for pkg in /usr/local/share/typst/packages/local/_src/*/; do \
+         name=$(basename "$pkg"); \
+         version=$(grep -oP '^version\s*=\s*"\K[^"]+' "$pkg/typst.toml"); \
+         mkdir -p "/usr/local/share/typst/packages/local/$name/$version"; \
+         cp -r "$pkg"/. "/usr/local/share/typst/packages/local/$name/$version/"; \
+         mkdir -p "/usr/share/typst/packages/local/$name/$version"; \
+         cp -r "$pkg"/. "/usr/share/typst/packages/local/$name/$version/"; \
+       done \
+    && rm -rf /usr/local/share/typst/packages/local/_src
+
 # PHP extensions
 RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip
 

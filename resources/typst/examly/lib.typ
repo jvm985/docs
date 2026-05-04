@@ -85,7 +85,7 @@
   // points table at end
   if show-points-table and show-points {
     pagebreak(weak: true)
-    points-table()
+    points_table()
   }
 }
 
@@ -257,7 +257,7 @@
 
 // === Points table =====================================================
 
-#let points-table() = context {
+#let points_table() = context {
   let entries = _points-state.final()
   if entries.len() == 0 { return }
   let total = entries.fold(0, (sum, e) => sum + e.points)

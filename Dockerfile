@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     r-base \
     r-base-dev \
     libcurl4-openssl-dev libssl-dev libxml2-dev \
+    libuv1-dev libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev libtiff-dev libjpeg-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Project fonts (e.g. Quicksand, used by some imported LaTeX projects).
@@ -69,8 +70,9 @@ RUN curl -fsSL https://github.com/typst/typst/releases/latest/download/typst-x86
 # PHP extensions
 RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip
 
-# R packages used by app
-RUN R -e "install.packages(c('rmarkdown','jsonlite','knitr'), repos='https://cloud.r-project.org')"
+# R packages used by app — fail loud if any required package didn't install
+RUN R -e "install.packages(c('rmarkdown','jsonlite','knitr'), repos='https://cloud.r-project.org', Ncpus=parallel::detectCores())" \
+    && R -e "stopifnot(all(c('rmarkdown','jsonlite','knitr') %in% rownames(installed.packages())))"
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

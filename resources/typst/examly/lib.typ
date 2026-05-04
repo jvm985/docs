@@ -140,16 +140,16 @@
 // Multiple choice. Pass options as positional args; answer = index of correct
 // option (0-based). For multiple correct: pass answer: (0, 2).
 #let mc(..options, answer: none) = context {
-  let show = _show-answers.get()
+  let visible = _show-answers.get()
   let opts = options.pos()
   let correct = if type(answer) == array { answer } else if answer != none { (answer,) } else { () }
   block(inset: (left: 1.5em), above: 0.4em)[
     #for (i, o) in opts.enumerate() {
       let letter = ("A","B","C","D","E","F","G","H").at(i, default: str(i + 1))
       let is-correct = i in correct
-      let mark = if show and is-correct { "■" } else { "□" }
+      let mark = if visible and is-correct { "■" } else { "□" }
       let row = [#mark #letter. #o]
-      block(below: 0.25em, if show and is-correct { text(fill: _answer-color)[#row] } else { row })
+      block(below: 0.25em, if visible and is-correct { text(fill: _answer-color)[#row] } else { row })
     }
   ]
 }
@@ -159,11 +159,11 @@
 
 // True / false (Waar / Niet waar).
 #let truefalse(answer: none) = context {
-  let show = _show-answers.get()
-  let mw = if show and answer == true { "■" } else { "□" }
-  let mn = if show and answer == false { "■" } else { "□" }
-  let label-w = if show and answer == true { text(fill: _answer-color)[#mw Waar] } else [#mw Waar]
-  let label-n = if show and answer == false { text(fill: _answer-color)[#mn Niet waar] } else [#mn Niet waar]
+  let visible = _show-answers.get()
+  let mw = if visible and answer == true { "■" } else { "□" }
+  let mn = if visible and answer == false { "■" } else { "□" }
+  let label-w = if visible and answer == true { text(fill: _answer-color)[#mw Waar] } else [#mw Waar]
+  let label-n = if visible and answer == false { text(fill: _answer-color)[#mn Niet waar] } else [#mn Niet waar]
   block(inset: (left: 1.5em), above: 0.4em)[
     #label-w #h(2em) #label-n
   ]
@@ -172,8 +172,8 @@
 // Lined area for a free-form answer; shows the model answer when in
 // correctie-modus, otherwise N empty lines.
 #let lines(n: 3, answer: none) = context {
-  let show = _show-answers.get()
-  if show and answer != none {
+  let visible = _show-answers.get()
+  if visible and answer != none {
     block(
       inset: 0.5em,
       stroke: 0.5pt + _answer-color,
@@ -198,13 +198,13 @@
 // In normal mode the gaps render as ____; with show-answers the answer
 // is shown in green.
 #let fillin(text-str) = context {
-  let show = _show-answers.get()
+  let visible = _show-answers.get()
   let parts = text-str.split(regex("(\{[^\}]*\})"))
   let result = []
   for p in parts {
     if p.starts-with("{") and p.ends-with("}") {
       let ans = p.slice(1, p.len() - 1)
-      if show {
+      if visible {
         result += text(fill: _answer-color, weight: "bold")[ #underline(ans) ]
       } else {
         let w = calc.max(2em, 0.6em * ans.len())
@@ -225,11 +225,11 @@
 // Without show-answers: left column on left, scrambled right column on right.
 // With show-answers: arrows showing the correct mapping.
 #let match(..pairs, scramble: true) = context {
-  let show = _show-answers.get()
+  let visible = _show-answers.get()
   let lst = pairs.pos()
   let lefts = lst.map(p => p.at(0))
   let rights = lst.map(p => p.at(1))
-  let display-rights = if show or not scramble {
+  let display-rights = if visible or not scramble {
     rights
   } else {
     // simple deterministic shuffle by reversing
@@ -243,8 +243,8 @@
       ..for (i, l) in lefts.enumerate() {
         (
           [#str(i + 1). #l],
-          if show { [→] } else { [#sym.dots.h.c] },
-          if show {
+          if visible { [→] } else { [#sym.dots.h.c] },
+          if visible {
             text(fill: _answer-color, weight: "bold")[#display-rights.at(i)]
           } else {
             display-rights.at(i)

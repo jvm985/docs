@@ -262,7 +262,7 @@ class CompileService
             'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
             'HOME' => $home,
             'XDG_CACHE_HOME' => $cacheDir,
-            'XDG_DATA_DIRS' => getenv('XDG_DATA_DIRS') ?: '/usr/local/share:/usr/share',
+            'XDG_DATA_HOME' => '/usr/local/share',
             'R_LIBS_USER' => $sharedLib,
         ];
         $process = new Process($cmd, $cwd, $env, null, $timeout);

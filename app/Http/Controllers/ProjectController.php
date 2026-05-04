@@ -44,6 +44,19 @@ class ProjectController extends Controller
         return redirect()->route('editor', $project);
     }
 
+    public function rename(Request $request, Project $project)
+    {
+        if (! $project->isOwnedBy($request->user())) {
+            abort(403);
+        }
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+        ]);
+        $project->update(['name' => $data['name']]);
+
+        return redirect()->route('projects.index');
+    }
+
     public function destroy(Request $request, Project $project)
     {
         Gate::authorize('delete', $project);

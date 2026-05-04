@@ -318,7 +318,7 @@ async function openFile(path) {
     document.getElementById('binary-notice').classList.add('hidden');
     const dfView = document.getElementById('dataframe-viewer');
     dfView.classList.add('hidden');
-    dfView.classList.remove('flex');
+    dfView.style.display = '';
 
     if (data.kind === 'text') {
         document.getElementById('editor-mount').classList.remove('hidden');
@@ -839,7 +839,7 @@ async function openDataFrameViewer(name) {
     document.getElementById('image-viewer').classList.add('hidden');
     document.getElementById('binary-notice').classList.add('hidden');
     view.classList.remove('hidden');
-    view.classList.add('flex');
+    view.style.display = 'flex';
     view.innerHTML = `<div class="flex-1 flex items-center justify-center text-xs text-gray-400">Data laden…</div>`;
     document.getElementById('active-file-name').textContent = name + ' (data frame)';
     document.getElementById('readonly-hint').classList.remove('hidden');

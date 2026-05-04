@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::post('/projects/{project}/duplicate', [ProjectController::class, 'duplicate'])->name('projects.duplicate');
     Route::post('/projects/{project}/share', [ProjectController::class, 'share'])->name('projects.share');
+    Route::patch('/projects/{project}/rename', [ProjectController::class, 'rename'])->name('projects.rename');
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
 
     Route::get('/editor/{project}', [EditorController::class, 'show'])->name('editor');

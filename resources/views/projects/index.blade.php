@@ -47,8 +47,27 @@
         @else
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="own-projects">
                 @foreach($ownProjects as $project)
-                    <div class="group flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm" data-testid="project-card">
-                        <a href="{{ route('editor', $project) }}" class="text-base font-medium text-gray-900 hover:text-amber-600" data-testid="project-link">{{ $project->name }}</a>
+                    <div class="group relative flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm" data-testid="project-card">
+                        <div class="flex items-start justify-between gap-2">
+                            <a href="{{ route('editor', $project) }}" class="text-base font-medium text-gray-900 hover:text-amber-600" data-testid="project-link">{{ $project->name }}</a>
+                            <div class="relative" @click.away="menuOpen = (menuOpen === {{ $project->id }} ? null : menuOpen)">
+                                <button type="button" @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})" class="-mr-1 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Acties" data-testid="project-actions">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+                                </button>
+                                <div x-show="menuOpen === {{ $project->id }}" x-cloak class="absolute right-0 top-7 z-10 w-40 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg">
+                                    <button type="button" @click="openRename({{ $project->id }}, @js($project->name)); menuOpen = null" class="block w-full px-3 py-1.5 text-left hover:bg-amber-50">Hernoem</button>
+                                    <button type="button" @click="openShare({{ $project->id }}); menuOpen = null" class="block w-full px-3 py-1.5 text-left hover:bg-amber-50">Delen</button>
+                                    <form method="POST" action="{{ route('projects.duplicate', $project) }}">
+                                        @csrf
+                                        <button class="block w-full px-3 py-1.5 text-left hover:bg-amber-50">Dupliceer</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('projects.destroy', $project) }}" onsubmit="return confirm('Project verwijderen?')">
+                                        @csrf @method('DELETE')
+                                        <button class="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50">Verwijder</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                             @if($project->public_permission)
                                 <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-700">Publiek ({{ $project->public_permission === 'write' ? 'lezen+schrijven' : 'alleen lezen' }})</span>
@@ -57,15 +76,17 @@
                                 <span class="rounded bg-sky-100 px-1.5 py-0.5 text-sky-700">Gedeeld met {{ $project->users->count() }}</span>
                             @endif
                         </div>
-                        <div class="mt-3 flex items-center gap-2 text-xs">
-                            <button type="button" @click="openShare({{ $project->id }})" class="text-gray-500 hover:text-amber-600">Delen</button>
-                            <form method="POST" action="{{ route('projects.duplicate', $project) }}">
-                                @csrf
-                                <button class="text-gray-500 hover:text-amber-600">Dupliceren</button>
-                            </form>
-                            <form method="POST" action="{{ route('projects.destroy', $project) }}" onsubmit="return confirm('Project verwijderen?')" class="ml-auto">
-                                @csrf @method('DELETE')
-                                <button class="text-gray-400 hover:text-red-500">Verwijder</button>
+
+                        {{-- Rename dialog --}}
+                        <div x-show="renameOpen === {{ $project->id }}" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" @keydown.escape.window="closeRename()">
+                            <form method="POST" action="{{ route('projects.rename', $project) }}" class="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl" @click.away="closeRename()">
+                                @csrf @method('PATCH')
+                                <h3 class="mb-3 text-base font-semibold">Project hernoemen</h3>
+                                <input type="text" name="name" required maxlength="120" x-model="renameName" x-init="$nextTick(() => { if (renameOpen === {{ $project->id }}) $el.focus(); })" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                                <div class="mt-4 flex justify-end gap-2">
+                                    <button type="button" @click="closeRename()" class="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100">Annuleer</button>
+                                    <button class="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">Bewaar</button>
+                                </div>
                             </form>
                         </div>
 
@@ -150,8 +171,13 @@
         return {
             showCreate: false,
             shareOpen: null,
+            renameOpen: null,
+            renameName: '',
+            menuOpen: null,
             openShare(id) { this.shareOpen = id; },
             closeShare() { this.shareOpen = null; },
+            openRename(id, currentName) { this.renameOpen = id; this.renameName = currentName; },
+            closeRename() { this.renameOpen = null; this.renameName = ''; },
         };
     }
 

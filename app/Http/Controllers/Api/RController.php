@@ -24,6 +24,45 @@ class RController extends Controller
         return response()->json($result);
     }
 
+    public function executeStream(Request $request, Project $project)
+    {
+        Gate::authorize('view', $project);
+        $data = $request->validate([
+            'code' => ['required', 'string'],
+            'path' => ['nullable', 'string'],
+        ]);
+        $user = $request->user();
+
+        return response()->stream(function () use ($project, $user, $data) {
+            @set_time_limit(0);
+            ignore_user_abort(false);
+            // Drop any output buffers Laravel/PHP may have stacked, then keep
+            // stdout flushed implicitly so each echo reaches the wire.
+            while (ob_get_level() > 0) {
+                @ob_end_flush();
+            }
+            ob_implicit_flush(true);
+
+            $send = function (array $msg): void {
+                echo json_encode($msg)."\n";
+                @flush();
+            };
+            $send(['kind' => 'started']);
+            try {
+                $result = $this->r->executeStreaming($project, $user, $data['code'], $data['path'] ?? null,
+                    fn (array $entry) => $send(['kind' => 'entry', 'entry' => $entry]));
+                $send(['kind' => 'done', 'variables' => $result['variables'], 'plots' => $result['plots']]);
+            } catch (\Throwable $e) {
+                $send(['kind' => 'done', 'error' => $e->getMessage(), 'variables' => [], 'plots' => []]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson',
+            'X-Accel-Buffering' => 'no',
+            'Cache-Control' => 'no-cache, no-transform',
+            'Content-Encoding' => 'identity',
+        ]);
+    }
+
     public function inspect(Request $request, Project $project)
     {
         Gate::authorize('view', $project);

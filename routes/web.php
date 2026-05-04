@@ -67,6 +67,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('/settings', [CompileController::class, 'updateSettings']);
 
         Route::post('/r/execute', [RController::class, 'execute']);
+        Route::post('/r/execute-stream', [RController::class, 'executeStream']);
         Route::post('/r/reset', [RController::class, 'reset']);
         Route::get('/r/state', [RController::class, 'state']);
         Route::post('/r/inspect', [RController::class, 'inspect']);

@@ -12,6 +12,30 @@ import { css } from '@codemirror/lang-css';
 import { javascript } from '@codemirror/lang-javascript';
 import { php } from '@codemirror/lang-php';
 import { python } from '@codemirror/lang-python';
+import { sql } from '@codemirror/lang-sql';
+import { rust } from '@codemirror/lang-rust';
+import { yaml } from '@codemirror/lang-yaml';
+import { cpp } from '@codemirror/lang-cpp';
+import { java } from '@codemirror/lang-java';
+import { StreamLanguage } from '@codemirror/language';
+import { stex } from '@codemirror/legacy-modes/mode/stex';
+import { r as rMode } from '@codemirror/legacy-modes/mode/r';
+import { shell } from '@codemirror/legacy-modes/mode/shell';
+import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { go } from '@codemirror/legacy-modes/mode/go';
+import { lua } from '@codemirror/legacy-modes/mode/lua';
+import { perl } from '@codemirror/legacy-modes/mode/perl';
+import { haskell } from '@codemirror/legacy-modes/mode/haskell';
+import { toml } from '@codemirror/legacy-modes/mode/toml';
+import { properties } from '@codemirror/legacy-modes/mode/properties';
+import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
+import { diff } from '@codemirror/legacy-modes/mode/diff';
+import { swift } from '@codemirror/legacy-modes/mode/swift';
+import { scheme } from '@codemirror/legacy-modes/mode/scheme';
+import { clojure } from '@codemirror/legacy-modes/mode/clojure';
+import { elm } from '@codemirror/legacy-modes/mode/elm';
+import { erlang } from '@codemirror/legacy-modes/mode/erlang';
+import { julia } from '@codemirror/legacy-modes/mode/julia';
 
 const csrf = () => document.querySelector('meta[name=csrf-token]')?.content || '';
 
@@ -27,6 +51,7 @@ const state = {
     expanded: new Set(),
     activePath: null,
     activeFile: null,
+    activeFolder: null,
     compiler: app.dataset.compiler || 'pdflatex',
     primaryFile: app.dataset.primaryFile || null,
     rOutput: [],
@@ -43,14 +68,40 @@ let currentLoadToken = 0;
 
 const langFor = (ext) => {
     switch (ext) {
-        case 'md': case 'rmd': return markdown();
-        case 'json': return json();
-        case 'xml': return xml();
-        case 'html': case 'htm': return html();
-        case 'css': return css();
-        case 'js': case 'mjs': case 'ts': return javascript();
-        case 'php': return php();
-        case 'py': return python();
+        case 'md': case 'rmd': case 'markdown': return markdown();
+        case 'json': case 'jsonc': case 'geojson': return json();
+        case 'xml': case 'xsd': case 'xsl': case 'xslt': case 'svg': case 'rss': case 'atom': case 'plist': return xml();
+        case 'html': case 'htm': case 'xhtml': case 'vue': case 'svelte': return html();
+        case 'css': case 'scss': case 'sass': case 'less': return css();
+        case 'js': case 'mjs': case 'cjs': return javascript();
+        case 'jsx': return javascript({ jsx: true });
+        case 'ts': return javascript({ typescript: true });
+        case 'tsx': return javascript({ jsx: true, typescript: true });
+        case 'php': case 'phtml': return php();
+        case 'py': case 'pyw': return python();
+        case 'sql': return sql();
+        case 'rs': return rust();
+        case 'yaml': case 'yml': return yaml();
+        case 'c': case 'h': case 'cc': case 'cpp': case 'cxx': case 'hpp': case 'hxx': case 'hh': return cpp();
+        case 'java': return java();
+        case 'tex': case 'sty': case 'cls': case 'bib': case 'ltx': return StreamLanguage.define(stex);
+        case 'r': case 'R': return StreamLanguage.define(rMode);
+        case 'sh': case 'bash': case 'zsh': case 'fish': case 'ksh': return StreamLanguage.define(shell);
+        case 'rb': case 'gemspec': case 'rake': return StreamLanguage.define(ruby);
+        case 'go': return StreamLanguage.define(go);
+        case 'lua': return StreamLanguage.define(lua);
+        case 'pl': case 'pm': return StreamLanguage.define(perl);
+        case 'hs': case 'lhs': return StreamLanguage.define(haskell);
+        case 'toml': return StreamLanguage.define(toml);
+        case 'ini': case 'env': case 'cfg': case 'conf': case 'properties': return StreamLanguage.define(properties);
+        case 'dockerfile': case 'containerfile': return StreamLanguage.define(dockerFile);
+        case 'diff': case 'patch': return StreamLanguage.define(diff);
+        case 'swift': return StreamLanguage.define(swift);
+        case 'scm': case 'ss': case 'rkt': return StreamLanguage.define(scheme);
+        case 'clj': case 'cljs': case 'cljc': case 'edn': return StreamLanguage.define(clojure);
+        case 'elm': return StreamLanguage.define(elm);
+        case 'erl': case 'hrl': return StreamLanguage.define(erlang);
+        case 'jl': return StreamLanguage.define(julia);
         default: return [];
     }
 };
@@ -102,7 +153,11 @@ function renderTreeNode(node) {
     li.className = 'mb-0.5';
 
     const row = document.createElement('div');
-    row.className = `filetree-row group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 hover:bg-gray-200 ${state.activePath === node.path ? 'bg-amber-100' : ''}`;
+    const isActiveFolder = node.type === 'folder' && state.activeFolder === node.path;
+    const highlight = state.activePath === node.path
+        ? 'bg-amber-100'
+        : (isActiveFolder ? 'ring-1 ring-amber-400 ring-inset' : '');
+    row.className = `filetree-row group flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 hover:bg-gray-200 ${highlight}`;
     row.draggable = CAN_WRITE;
     row.dataset.path = node.path;
     row.dataset.type = node.type;
@@ -124,7 +179,10 @@ function renderTreeNode(node) {
             link.title = 'Bevat gelinkte bestanden';
             row.appendChild(link);
         }
-        row.addEventListener('click', () => toggleFolder(node.path));
+        row.addEventListener('click', () => {
+            state.activeFolder = node.path;
+            toggleFolder(node.path);
+        });
         row.addEventListener('contextmenu', (e) => showContextMenu(e, node));
         bindDropTarget(row, node.path);
         bindDragSource(row, node.path);
@@ -153,7 +211,10 @@ function renderTreeNode(node) {
             link.title = 'Gelinkt vanuit een ander project (alleen-lezen)';
             row.appendChild(link);
         }
-        row.addEventListener('click', () => openFile(node.path));
+        row.addEventListener('click', () => {
+            state.activeFolder = null;
+            openFile(node.path);
+        });
         row.addEventListener('contextmenu', (e) => showContextMenu(e, node));
         bindDragSource(row, node.path);
         li.appendChild(row);
@@ -255,7 +316,9 @@ async function openFile(path) {
     document.getElementById('editor-mount').classList.add('hidden');
     document.getElementById('image-viewer').classList.add('hidden');
     document.getElementById('binary-notice').classList.add('hidden');
-    document.getElementById('dataframe-viewer').classList.add('hidden');
+    const dfView = document.getElementById('dataframe-viewer');
+    dfView.classList.add('hidden');
+    dfView.classList.remove('flex');
 
     if (data.kind === 'text') {
         document.getElementById('editor-mount').classList.remove('hidden');
@@ -480,7 +543,7 @@ function triggerFilePicker(folder) {
     inp.style.display = 'none';
     document.body.appendChild(inp);
     inp.addEventListener('change', () => {
-        uploadFiles(inp.files, '').finally(() => inp.remove());
+        uploadFiles(inp.files, state.activeFolder || '').finally(() => inp.remove());
     });
     inp.click();
 }
@@ -488,8 +551,10 @@ function triggerFilePicker(folder) {
 async function createInteractive(type) {
     const name = prompt(type === 'folder' ? 'Naam van de nieuwe map:' : 'Naam van het nieuwe bestand:');
     if (!name) return;
+    const parent = state.activeFolder || '';
+    const path = parent ? parent + '/' + name : name;
     try {
-        await api('POST', apiUrl('/file'), { path: name, type });
+        await api('POST', apiUrl('/file'), { path, type });
         await loadTree(state.activePath);
     } catch (e) { alert('Kan niet aanmaken: ' + e.message); }
 }
@@ -890,6 +955,7 @@ function toggleCompileLog() {
 async function runR() {
     if (!editorView || !state.activeFile) return;
     if (state.activeFile.extension !== 'r') return;
+    const plotsBefore = state.rPlots.length;
     const sel = editorView.state.selection.main;
     let code;
     if (!sel.empty) {
@@ -900,19 +966,49 @@ async function runR() {
     }
     if (!code.trim()) return;
     document.getElementById('compile-status').textContent = 'R draait…';
+    showROutput();
     try {
-        const res = await api('POST', apiUrl('/r/execute'), { code, path: state.activeFile.path });
-        document.getElementById('compile-status').textContent = '';
-        appendROutput(res.output || []);
-        state.rVars = res.variables || [];
-        state.rPlots = res.plots || [];
-        state.plotIndex = 0;
+        const resp = await fetch(apiUrl('/r/execute-stream'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/x-ndjson' },
+            body: JSON.stringify({ code, path: state.activeFile.path }),
+        });
+        if (!resp.ok || !resp.body) {
+            throw new Error(`HTTP ${resp.status}`);
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        let final = null;
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let nl;
+            while ((nl = buf.indexOf('\n')) >= 0) {
+                const line = buf.slice(0, nl).trim();
+                buf = buf.slice(nl + 1);
+                if (!line) continue;
+                let msg;
+                try { msg = JSON.parse(line); } catch { continue; }
+                if (msg.kind === 'entry' && msg.entry) {
+                    appendROutput([msg.entry]);
+                } else if (msg.kind === 'done') {
+                    final = msg;
+                }
+            }
+        }
+        document.getElementById('compile-status').textContent = final?.error ? 'fout' : '';
+        if (final?.error) appendROutput([{ type: 'error', text: final.error }]);
+        state.rVars = final?.variables || [];
+        state.rPlots = final?.plots || [];
+        state.plotIndex = state.rPlots.length > plotsBefore
+            ? plotsBefore                   // jump to first plot of this run
+            : Math.max(0, state.rPlots.length - 1);
         renderRSidebar();
-        showROutput();
     } catch (e) {
         document.getElementById('compile-status').textContent = 'fout';
         appendROutput([{ type: 'error', text: e.message }]);
-        showROutput();
     }
 }
 
@@ -1005,15 +1101,10 @@ function showROutput() {
     r.classList.add('flex');
 }
 
-document.getElementById('r-clear')?.addEventListener('click', () => {
-    state.rOutput = [];
-    document.getElementById('r-console').innerHTML = '';
-});
-
 document.getElementById('r-reset')?.addEventListener('click', async () => {
-    if (!confirm('R-sessie resetten? Alle variabelen worden gewist.')) return;
+    if (!confirm('R-sessie wissen? Console, variabelen, plots en attached packages gaan weg.')) return;
     await api('POST', apiUrl('/r/reset'));
-    state.rOutput = []; state.rVars = []; state.rPlots = [];
+    state.rOutput = []; state.rVars = []; state.rPlots = []; state.plotIndex = 0;
     document.getElementById('r-console').innerHTML = '';
     renderRSidebar();
 });

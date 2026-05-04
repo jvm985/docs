@@ -43,7 +43,7 @@
     <div class="flex flex-1 overflow-hidden">
 
         <aside id="left-pane" class="flex flex-col border-r bg-gray-50" style="width: 260px; min-width: 180px">
-            <div class="flex items-center justify-between border-b px-3 py-2">
+            <div class="flex h-8 items-center justify-between border-b px-3">
                 <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Bestanden</span>
                 @if($canWrite)
                     <div id="filetree-actions" class="flex gap-1"></div>
@@ -88,8 +88,7 @@
                 <div class="flex items-center justify-between border-b bg-gray-50 px-2 py-1 text-xs">
                     <span class="font-semibold text-gray-500">Console</span>
                     <div class="flex gap-2">
-                        <button id="r-reset" class="text-gray-400 hover:text-amber-500" title="Sessie resetten">reset</button>
-                        <button id="r-clear" class="text-gray-400 hover:text-red-500">wissen</button>
+                        <button id="r-reset" class="text-gray-400 hover:text-red-500" title="Console, variabelen, plots en attached packages wissen">Sessie wissen</button>
                     </div>
                 </div>
                 <div id="r-console" class="overflow-y-auto p-2 font-mono text-xs" style="height: 50%" data-testid="r-console"></div>

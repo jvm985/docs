@@ -57,7 +57,7 @@ step "Running feature test suite (one-off container with dev deps, sqlite :memor
 if docker compose run --rm --no-deps -T \
         -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: \
         --entrypoint sh \
-        "$SERVICE" -c "composer install --no-interaction --prefer-dist --quiet 2>&1 | tail -3 && php artisan test --compact --testsuite=Feature"; then
+        "$SERVICE" -c "composer install --no-interaction --prefer-dist --ignore-platform-req=ext-sockets --quiet 2>&1 | tail -3 && php artisan test --compact --testsuite=Feature"; then
     ok "feature tests passed"
 else
     fail "feature tests failed"

@@ -104,6 +104,26 @@ test('upload creates files', function () {
     expect(file_get_contents($abs))->toBe('hi there');
 });
 
+test('upload multiple files in one request', function () {
+    $this->actingAs($this->user)
+        ->post("/api/projects/{$this->project->id}/upload", [
+            'folder' => '',
+            'files' => [
+                UploadedFile::fake()->createWithContent('a.txt', 'AAA'),
+                UploadedFile::fake()->createWithContent('b.txt', 'BBB'),
+                UploadedFile::fake()->createWithContent('c.txt', 'CCC'),
+            ],
+            'paths' => ['a.txt', 'b.txt', 'c.txt'],
+        ])
+        ->assertOk();
+
+    foreach (['a.txt' => 'AAA', 'b.txt' => 'BBB', 'c.txt' => 'CCC'] as $name => $expected) {
+        $abs = storage_path('app/private/'.$this->project->filesPath($name));
+        expect(file_exists($abs))->toBeTrue();
+        expect(file_get_contents($abs))->toBe($expected);
+    }
+});
+
 test('upload preserves folder structure', function () {
     $this->actingAs($this->user)
         ->post("/api/projects/{$this->project->id}/upload", [

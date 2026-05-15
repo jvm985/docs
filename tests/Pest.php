@@ -1,6 +1,6 @@
 <?php
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\TestCase;
 
 // Ensure the sqlite test database file exists before Laravel boots.
@@ -11,7 +11,7 @@ if (! file_exists($testDb)) {
 }
 
 pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
+    ->use(DatabaseMigrations::class)
     ->beforeEach(function () {
         // Redirect storage to a per-suite test dir so tests never touch real user files.
         $testStorage = storage_path('framework/testing/disks');

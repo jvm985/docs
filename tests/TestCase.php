@@ -11,9 +11,8 @@ abstract class TestCase extends BaseTestCase
 
     protected function setUp(): void
     {
-        $traits = class_uses_recursive(static::class);
-        fwrite(STDERR, "[DEBUG] TestCase setUp class=".static::class." traits=".implode(',', array_keys($traits))."\n");
+        file_put_contents('/tmp/test-debug.log', "[DEBUG] TestCase::setUp called for ".static::class."\n", FILE_APPEND);
         parent::setUp();
-        fwrite(STDERR, "[DEBUG] After parent::setUp; schema has users? ".(\Illuminate\Support\Facades\Schema::hasTable('users') ? 'yes' : 'NO')."\n");
+        file_put_contents('/tmp/test-debug.log', "[DEBUG] After parent::setUp; users table exists: ".(\Illuminate\Support\Facades\Schema::hasTable('users') ? 'yes' : 'NO')."\n", FILE_APPEND);
     }
 }

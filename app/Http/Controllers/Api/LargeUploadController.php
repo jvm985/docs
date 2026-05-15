@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\SharedDrive;
-use App\Services\FileService;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -15,9 +14,9 @@ class LargeUploadController extends Controller
 
     private const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB
 
-    public function init(Request $request, SharedDrive $drive)
+    public function init(Request $request, Project $project)
     {
-        Gate::authorize('createProjectIn', $drive);
+        Gate::authorize('update', $project);
 
         $data = $request->validate([
             'filename' => ['required', 'string', 'max:255'],
@@ -25,7 +24,7 @@ class LargeUploadController extends Controller
         ]);
 
         $filename = basename($data['filename']);
-        if ($filename === '' || str_contains($filename, '/') || str_contains($filename, "\0")) {
+        if ($filename === '' || $filename === '.' || $filename === '..' || str_contains($filename, "\0")) {
             abort(422, 'Invalid filename.');
         }
 
@@ -34,7 +33,7 @@ class LargeUploadController extends Controller
 
         $manifest = [
             'upload_id' => $uploadId,
-            'drive_id' => $drive->id,
+            'project_id' => $project->id,
             'user_id' => $userId,
             'filename' => $filename,
             'size' => $data['size'],
@@ -44,35 +43,29 @@ class LargeUploadController extends Controller
             'created_at' => now()->toIso8601String(),
         ];
 
-        $dir = $this->uploadDir($userId, $uploadId);
+        $dir = $this->scratchDir($project, $userId, $uploadId);
         Storage::makeDirectory($dir);
         Storage::put($dir.'/manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
 
         return response()->json($manifest);
     }
 
-    public function status(Request $request, SharedDrive $drive, string $uploadId)
+    public function status(Request $request, Project $project, string $uploadId)
     {
-        Gate::authorize('createProjectIn', $drive);
+        Gate::authorize('update', $project);
 
-        $manifest = $this->loadManifest($request->user()->id, $uploadId);
-        if ($manifest['drive_id'] !== $drive->id) {
-            abort(404);
-        }
+        $manifest = $this->loadManifest($project, $request->user()->id, $uploadId);
 
         return response()->json($manifest);
     }
 
-    public function chunk(Request $request, SharedDrive $drive, string $uploadId, int $index)
+    public function chunk(Request $request, Project $project, string $uploadId, int $index)
     {
-        Gate::authorize('createProjectIn', $drive);
+        Gate::authorize('update', $project);
 
         $userId = $request->user()->id;
-        $manifest = $this->loadManifest($userId, $uploadId);
+        $manifest = $this->loadManifest($project, $userId, $uploadId);
 
-        if ($manifest['drive_id'] !== $drive->id) {
-            abort(404);
-        }
         if ($index < 0 || $index >= $manifest['total_chunks']) {
             abort(422, 'Invalid chunk index.');
         }
@@ -82,7 +75,7 @@ class LargeUploadController extends Controller
             abort(422, 'Empty chunk body.');
         }
 
-        $dir = $this->uploadDir($userId, $uploadId);
+        $dir = $this->scratchDir($project, $userId, $uploadId);
         Storage::put($dir.'/chunk_'.$index, $body);
 
         if (! in_array($index, $manifest['received_chunks'], true)) {
@@ -97,16 +90,13 @@ class LargeUploadController extends Controller
         ]);
     }
 
-    public function finish(Request $request, SharedDrive $drive, string $uploadId, FileService $files)
+    public function finish(Request $request, Project $project, string $uploadId)
     {
-        Gate::authorize('createProjectIn', $drive);
+        Gate::authorize('update', $project);
 
         $userId = $request->user()->id;
-        $manifest = $this->loadManifest($userId, $uploadId);
+        $manifest = $this->loadManifest($project, $userId, $uploadId);
 
-        if ($manifest['drive_id'] !== $drive->id) {
-            abort(404);
-        }
         if (count($manifest['received_chunks']) !== $manifest['total_chunks']) {
             return response()->json([
                 'error' => 'incomplete',
@@ -115,15 +105,8 @@ class LargeUploadController extends Controller
             ], 409);
         }
 
-        // Create the project that hosts the uploaded file.
-        $projectName = pathinfo($manifest['filename'], PATHINFO_FILENAME) ?: $manifest['filename'];
-        $project = $request->user()->projects()->create([
-            'name' => $projectName,
-            'shared_drive_id' => $drive->id,
-        ]);
-        $files->basePath($project);
-
-        // Stream-assemble chunks into the project's files dir.
+        // Stream-assemble into the project's files dir.
+        $project->ensureDirectories();
         $finalRelative = $project->filesPath($manifest['filename']);
         $finalAbsolute = Storage::disk('local')->path($finalRelative);
         $finalDir = dirname($finalAbsolute);
@@ -137,7 +120,7 @@ class LargeUploadController extends Controller
         }
         try {
             for ($i = 0; $i < $manifest['total_chunks']; $i++) {
-                $chunkPath = Storage::disk('local')->path($this->uploadDir($userId, $uploadId).'/chunk_'.$i);
+                $chunkPath = Storage::disk('local')->path($this->scratchDir($project, $userId, $uploadId).'/chunk_'.$i);
                 $in = fopen($chunkPath, 'rb');
                 if ($in === false) {
                     abort(500, 'Missing chunk '.$i);
@@ -149,25 +132,23 @@ class LargeUploadController extends Controller
             fclose($out);
         }
 
-        // Cleanup upload scratch space.
-        Storage::deleteDirectory($this->uploadDir($userId, $uploadId));
+        Storage::deleteDirectory($this->scratchDir($project, $userId, $uploadId));
 
         return response()->json([
             'project_id' => $project->id,
-            'project_url' => route('editor', $project),
             'filename' => $manifest['filename'],
             'size' => filesize($finalAbsolute),
         ]);
     }
 
-    public function cancel(Request $request, SharedDrive $drive, string $uploadId)
+    public function cancel(Request $request, Project $project, string $uploadId)
     {
-        Gate::authorize('createProjectIn', $drive);
+        Gate::authorize('update', $project);
 
-        $dir = $this->uploadDir($request->user()->id, $uploadId);
+        $dir = $this->scratchDir($project, $request->user()->id, $uploadId);
         if (Storage::exists($dir.'/manifest.json')) {
             $manifest = json_decode(Storage::get($dir.'/manifest.json'), true);
-            if (($manifest['drive_id'] ?? null) !== $drive->id) {
+            if (($manifest['project_id'] ?? null) !== $project->id) {
                 abort(404);
             }
         }
@@ -176,22 +157,27 @@ class LargeUploadController extends Controller
         return response()->json(['cancelled' => true]);
     }
 
-    private function uploadDir(int $userId, string $uploadId): string
+    private function scratchDir(Project $project, int $userId, string $uploadId): string
     {
         if (! preg_match('/^[a-f0-9]{32}$/', $uploadId)) {
             abort(422, 'Invalid upload id.');
         }
 
-        return 'uploads/'.$userId.'/'.$uploadId;
+        return 'projects/'.$project->id.'/uploads/'.$userId.'/'.$uploadId;
     }
 
-    private function loadManifest(int $userId, string $uploadId): array
+    private function loadManifest(Project $project, int $userId, string $uploadId): array
     {
-        $path = $this->uploadDir($userId, $uploadId).'/manifest.json';
+        $path = $this->scratchDir($project, $userId, $uploadId).'/manifest.json';
         if (! Storage::exists($path)) {
             abort(404);
         }
 
-        return json_decode(Storage::get($path), true);
+        $manifest = json_decode(Storage::get($path), true);
+        if (($manifest['project_id'] ?? null) !== $project->id) {
+            abort(404);
+        }
+
+        return $manifest;
     }
 }

@@ -107,5 +107,9 @@
     </div>
 </div>
 
+@if($canWrite)
+    @include('editor._large_upload', ['project' => $project])
+@endif
+
 </body>
 </html>

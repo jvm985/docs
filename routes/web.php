@@ -101,14 +101,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/r/inspect', [RController::class, 'inspect']);
     });
 
-    // Large file upload to a shared drive (chunked, resumable)
-    Route::post('/api/drives/{drive}/uploads', [LargeUploadController::class, 'init'])->name('drives.uploads.init');
-    Route::get('/api/drives/{drive}/uploads/{uploadId}', [LargeUploadController::class, 'status'])->name('drives.uploads.status');
-    Route::put('/api/drives/{drive}/uploads/{uploadId}/chunks/{index}', [LargeUploadController::class, 'chunk'])
+    // Large file upload into a project (chunked, resumable)
+    Route::post('/api/projects/{project}/uploads', [LargeUploadController::class, 'init'])->name('projects.uploads.init');
+    Route::get('/api/projects/{project}/uploads/{uploadId}', [LargeUploadController::class, 'status'])->name('projects.uploads.status');
+    Route::put('/api/projects/{project}/uploads/{uploadId}/chunks/{index}', [LargeUploadController::class, 'chunk'])
         ->where('index', '[0-9]+')
-        ->name('drives.uploads.chunk');
-    Route::post('/api/drives/{drive}/uploads/{uploadId}/finish', [LargeUploadController::class, 'finish'])->name('drives.uploads.finish');
-    Route::delete('/api/drives/{drive}/uploads/{uploadId}', [LargeUploadController::class, 'cancel'])->name('drives.uploads.cancel');
+        ->name('projects.uploads.chunk');
+    Route::post('/api/projects/{project}/uploads/{uploadId}/finish', [LargeUploadController::class, 'finish'])->name('projects.uploads.finish');
+    Route::delete('/api/projects/{project}/uploads/{uploadId}', [LargeUploadController::class, 'cancel'])->name('projects.uploads.cancel');
 
     Route::get('/api/my-projects', fn () => response()->json(
         request()->user()->projects()->select('id', 'name')->orderBy('name')->get()

@@ -1,18 +1,17 @@
 <?php
 
 use App\Models\Project;
-use App\Models\SharedDrive;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
-    $this->teacher = User::factory()->teacher()->create();
-    $this->drive = SharedDrive::factory()->for($this->teacher, 'owner')->create();
+    $this->user = User::factory()->create();
+    $this->project = Project::factory()->for($this->user)->create();
 });
 
-test('owner can init an upload and gets a manifest with chunk plan', function () {
-    $resp = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+test('owner can init an upload and gets a manifest', function () {
+    $resp = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'big.mp4',
             'size' => 12_000_000, // 12 MB → 3 chunks of 5 MB
         ])
@@ -24,40 +23,51 @@ test('owner can init an upload and gets a manifest with chunk plan', function ()
     expect($resp['total_chunks'])->toBe(3);
     expect($resp['received_chunks'])->toBe([]);
     expect($resp['filename'])->toBe('big.mp4');
+    expect($resp['project_id'])->toBe($this->project->id);
 });
 
-test('non-member cannot init an upload', function () {
+test('non-owner without share access cannot init an upload', function () {
     $stranger = User::factory()->create();
 
     $this->actingAs($stranger)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'sneaky.zip',
             'size' => 1024,
         ])
         ->assertForbidden();
 });
 
-test('member with read permission cannot init an upload', function () {
-    $student = User::factory()->create();
-    $this->drive->members()->attach($student, ['permission' => 'read']);
+test('shared user with read permission cannot init an upload', function () {
+    $reader = User::factory()->create();
+    $this->project->users()->attach($reader, ['permission' => 'read']);
 
-    $this->actingAs($student)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $this->actingAs($reader)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'foo.zip',
             'size' => 1024,
         ])
         ->assertForbidden();
 });
 
-test('upload chunks then finish creates a project with the assembled file', function () {
-    // Build a file from two predictable chunks (1 KB each).
+test('shared user with write permission can init an upload', function () {
+    $writer = User::factory()->create();
+    $this->project->users()->attach($writer, ['permission' => 'write']);
+
+    $this->actingAs($writer)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
+            'filename' => 'foo.zip',
+            'size' => 1024,
+        ])->assertOk();
+});
+
+test('upload chunks then finish writes the file into the project', function () {
     $chunkA = str_repeat('A', 1024);
     $chunkB = str_repeat('B', 512);
     $expected = $chunkA.$chunkB;
     $size = strlen($expected);
 
-    $init = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $init = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'data.bin',
             'size' => $size,
         ])
@@ -66,60 +76,50 @@ test('upload chunks then finish creates a project with the assembled file', func
 
     $uploadId = $init['upload_id'];
 
-    // Upload chunk 0 (whole file fits in one 5MB chunk)
-    $this->actingAs($this->teacher)
-        ->call('PUT', "/api/drives/{$this->drive->id}/uploads/{$uploadId}/chunks/0", [], [], [], [], $expected)
+    $this->actingAs($this->user)
+        ->call('PUT', "/api/projects/{$this->project->id}/uploads/{$uploadId}/chunks/0", [], [], [], [], $expected)
         ->assertOk();
 
-    $finish = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads/{$uploadId}/finish")
+    $finish = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads/{$uploadId}/finish")
         ->assertOk()
         ->json();
 
-    expect($finish)->toHaveKey('project_id');
+    expect($finish['project_id'])->toBe($this->project->id);
+    expect($finish['filename'])->toBe('data.bin');
 
-    $project = Project::find($finish['project_id']);
-    expect($project)->not->toBeNull();
-    expect($project->shared_drive_id)->toBe($this->drive->id);
-    expect($project->name)->toBe('data');
-
-    // Verify the file was written to the project's files dir
-    $assembled = Storage::disk('local')->get($project->filesPath('data.bin'));
+    $assembled = Storage::disk('local')->get($this->project->filesPath('data.bin'));
     expect($assembled)->toBe($expected);
 });
 
 test('finish refuses if not all chunks received', function () {
-    $init = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $init = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'partial.bin',
             'size' => 12_000_000,
-        ])
-        ->assertOk()
-        ->json();
+        ])->json();
 
-    // No chunks uploaded
-    $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads/{$init['upload_id']}/finish")
+    $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads/{$init['upload_id']}/finish")
         ->assertStatus(409);
 });
 
 test('status endpoint reflects received chunks (resume support)', function () {
-    $init = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $init = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'big.bin',
-            'size' => 6_000_000, // 2 chunks
+            'size' => 6_000_000,
         ])->json();
 
     $uploadId = $init['upload_id'];
 
-    // Upload only chunk 1 (the second chunk)
     $body = str_repeat('x', 1024);
-    $this->actingAs($this->teacher)
-        ->call('PUT', "/api/drives/{$this->drive->id}/uploads/{$uploadId}/chunks/1", [], [], [], [], $body)
+    $this->actingAs($this->user)
+        ->call('PUT', "/api/projects/{$this->project->id}/uploads/{$uploadId}/chunks/1", [], [], [], [], $body)
         ->assertOk();
 
-    $status = $this->actingAs($this->teacher)
-        ->getJson("/api/drives/{$this->drive->id}/uploads/{$uploadId}")
+    $status = $this->actingAs($this->user)
+        ->getJson("/api/projects/{$this->project->id}/uploads/{$uploadId}")
         ->assertOk()
         ->json();
 
@@ -128,59 +128,71 @@ test('status endpoint reflects received chunks (resume support)', function () {
 });
 
 test('cancel deletes upload scratch space', function () {
-    $init = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $init = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'cancel.bin',
             'size' => 1024,
         ])->json();
 
     $uploadId = $init['upload_id'];
 
-    // Upload a chunk
-    $this->actingAs($this->teacher)
-        ->call('PUT', "/api/drives/{$this->drive->id}/uploads/{$uploadId}/chunks/0", [], [], [], [], 'data')
+    $this->actingAs($this->user)
+        ->call('PUT', "/api/projects/{$this->project->id}/uploads/{$uploadId}/chunks/0", [], [], [], [], 'data')
         ->assertOk();
 
-    // Cancel
-    $this->actingAs($this->teacher)
-        ->deleteJson("/api/drives/{$this->drive->id}/uploads/{$uploadId}")
+    $this->actingAs($this->user)
+        ->deleteJson("/api/projects/{$this->project->id}/uploads/{$uploadId}")
         ->assertOk();
 
-    // Status should now 404
-    $this->actingAs($this->teacher)
-        ->getJson("/api/drives/{$this->drive->id}/uploads/{$uploadId}")
+    $this->actingAs($this->user)
+        ->getJson("/api/projects/{$this->project->id}/uploads/{$uploadId}")
         ->assertStatus(404);
 });
 
 test('chunk index out of range is rejected', function () {
-    $init = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $init = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'x.bin',
-            'size' => 1024, // 1 chunk total
+            'size' => 1024,
         ])->json();
 
-    $this->actingAs($this->teacher)
-        ->call('PUT', "/api/drives/{$this->drive->id}/uploads/{$init['upload_id']}/chunks/5", [], [], [], [], 'x')
+    $this->actingAs($this->user)
+        ->call('PUT', "/api/projects/{$this->project->id}/uploads/{$init['upload_id']}/chunks/5", [], [], [], [], 'x')
         ->assertStatus(422);
 });
 
 test('invalid upload id format is rejected', function () {
-    $this->actingAs($this->teacher)
-        ->getJson("/api/drives/{$this->drive->id}/uploads/not-a-valid-id")
+    $this->actingAs($this->user)
+        ->getJson("/api/projects/{$this->project->id}/uploads/not-a-valid-id")
         ->assertStatus(422);
 });
 
-test('cannot upload to a drive you are not a member of with someone elses upload id', function () {
+test('a different user cannot push a chunk to someone elses upload', function () {
     $stranger = User::factory()->create();
 
-    $init = $this->actingAs($this->teacher)
-        ->postJson("/api/drives/{$this->drive->id}/uploads", [
+    $init = $this->actingAs($this->user)
+        ->postJson("/api/projects/{$this->project->id}/uploads", [
             'filename' => 'mine.bin',
             'size' => 1024,
         ])->json();
 
-    // Stranger tries to push a chunk to this upload
     $this->actingAs($stranger)
-        ->call('PUT', "/api/drives/{$this->drive->id}/uploads/{$init['upload_id']}/chunks/0", [], [], [], [], 'evil')
+        ->call('PUT', "/api/projects/{$this->project->id}/uploads/{$init['upload_id']}/chunks/0", [], [], [], [], 'evil')
         ->assertForbidden();
+});
+
+test('upload also works on a project that lives inside a shared drive', function () {
+    $teacher = User::factory()->teacher()->create();
+    $drive = \App\Models\SharedDrive::factory()->for($teacher, 'owner')->create();
+    $student = User::factory()->create();
+    $drive->members()->attach($student, ['permission' => 'write']);
+
+    $project = Project::factory()->for($teacher)->create(['shared_drive_id' => $drive->id]);
+
+    $this->actingAs($student)
+        ->postJson("/api/projects/{$project->id}/uploads", [
+            'filename' => 'data.bin',
+            'size' => 1024,
+        ])
+        ->assertOk();
 });

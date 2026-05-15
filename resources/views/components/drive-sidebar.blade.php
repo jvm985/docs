@@ -13,7 +13,6 @@
 <aside class="w-64 shrink-0 border-r border-gray-200 bg-white">
     <div class="px-5 py-5">
         <a href="{{ route('projects.index') }}" class="text-lg font-semibold text-gray-900">Docs</a>
-        <p class="mt-0.5 text-xs text-gray-500">{{ $user?->name }}</p>
     </div>
 
     <nav class="px-2 pb-6 text-sm">

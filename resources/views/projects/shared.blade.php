@@ -9,10 +9,14 @@
             <table class="min-w-full text-sm" data-testid="shared-projects-table">
                 <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
                     <tr>
-                        <th class="px-4 py-3 text-left font-medium">Naam</th>
+                        <th class="px-4 py-3 text-left font-medium">
+                            <x-sort-header key="name" label="Naam" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
+                        </th>
                         <th class="px-4 py-3 text-left font-medium">Eigenaar</th>
                         <th class="px-4 py-3 text-left font-medium">Toegang</th>
-                        <th class="px-4 py-3 text-left font-medium">Gewijzigd</th>
+                        <th class="px-4 py-3 text-left font-medium">
+                            <x-sort-header key="updated" label="Gewijzigd" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">

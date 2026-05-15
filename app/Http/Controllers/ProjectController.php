@@ -12,6 +12,12 @@ use Illuminate\Support\Facades\Gate;
 
 class ProjectController extends Controller
 {
+    private const SORTABLE = [
+        'name' => 'name',
+        'public' => 'public_permission',
+        'updated' => 'updated_at',
+    ];
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -21,17 +27,35 @@ class ProjectController extends Controller
             return $this->search($user, $q);
         }
 
+        [$sortKey, $sortColumn, $dir] = $this->resolveSort($request);
+
         $projects = $user->projects()
             ->whereNull('shared_drive_id')
             ->with('users')
-            ->orderByDesc('updated_at')
+            ->orderBy($sortColumn, $dir)
             ->get();
 
         return view('projects.index', [
             'projects' => $projects,
             'scope' => 'my-drive',
             'heading' => 'Mijn Drive',
+            'sortKey' => $sortKey,
+            'sortDir' => $dir,
         ]);
+    }
+
+    private function resolveSort(Request $request, string $defaultKey = 'updated', string $defaultDir = 'desc'): array
+    {
+        $sortKey = $request->query('sort', $defaultKey);
+        if (! array_key_exists($sortKey, self::SORTABLE)) {
+            $sortKey = $defaultKey;
+        }
+        $dir = strtolower((string) $request->query('dir', $defaultDir));
+        if (! in_array($dir, ['asc', 'desc'], true)) {
+            $dir = $defaultDir;
+        }
+
+        return [$sortKey, self::SORTABLE[$sortKey], $dir];
     }
 
     private function search(User $user, string $q)
@@ -74,15 +98,19 @@ class ProjectController extends Controller
     public function sharedWithMe(Request $request)
     {
         $user = $request->user();
+        [$sortKey, $sortColumn, $dir] = $this->resolveSort($request);
+
         $projects = $user->sharedProjects()
             ->with('owner')
-            ->orderByDesc('projects.updated_at')
+            ->orderBy('projects.'.$sortColumn, $dir)
             ->get();
 
         return view('projects.shared', [
             'projects' => $projects,
             'scope' => 'shared',
             'heading' => 'Met mij gedeeld',
+            'sortKey' => $sortKey,
+            'sortDir' => $dir,
         ]);
     }
 

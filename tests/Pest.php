@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Tests\TestCase;
 
 // Ensure the sqlite test database file exists before Laravel boots.
@@ -10,7 +9,7 @@ if (! file_exists($testDb)) {
     touch($testDb);
 }
 
-uses(TestCase::class, DatabaseMigrations::class)->in('Feature', 'Browser');
+uses(TestCase::class)->in('Feature', 'Browser');
 
 uses()->beforeEach(function () {
     $dir = storage_path('framework/testing/disks/app/private/projects');

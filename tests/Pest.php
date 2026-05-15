@@ -14,7 +14,7 @@ uses(TestCase::class, DatabaseMigrations::class)->in('Feature');
 
 uses()->beforeEach(function () {
     // CSRF tokens aren't relevant for in-process tests.
-    $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+    $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class);
 
     // Redirect project storage to a per-suite test dir.
     app()->useStoragePath(storage_path('framework/testing/disks'));

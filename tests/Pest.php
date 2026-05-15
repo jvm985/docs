@@ -13,10 +13,10 @@ if (! file_exists($testDb)) {
 pest()->extend(TestCase::class)
     ->use(DatabaseMigrations::class)
     ->beforeEach(function () {
-        // Redirect storage to a per-suite test dir so tests never touch real user files.
-        $testStorage = storage_path('framework/testing/disks');
-        app()->useStoragePath($testStorage);
-        $dir = $testStorage.'/app/private/projects';
+        // Keep project file IO under storage/framework/testing/ — DO NOT call
+        // useStoragePath(), it re-bootstraps the application and drops the
+        // in-progress migration state, leaving the DB without tables.
+        $dir = storage_path('framework/testing/disks/app/private/projects');
         if (is_dir($dir)) {
             removeDirRecursive($dir);
         }

@@ -35,8 +35,20 @@ class ProjectController extends Controller
             ->orderBy($sortColumn, $dir)
             ->get();
 
+        // Projects shared "with everyone" (public_permission set) that the user
+        // doesn't already see via ownership or explicit share.
+        $publicProjects = Project::query()
+            ->whereNotNull('public_permission')
+            ->whereNull('shared_drive_id')
+            ->where('user_id', '!=', $user->id)
+            ->whereDoesntHave('users', fn ($q) => $q->where('users.id', $user->id))
+            ->with('owner')
+            ->orderBy('name')
+            ->get();
+
         return view('projects.index', [
             'projects' => $projects,
+            'publicProjects' => $publicProjects,
             'scope' => 'my-drive',
             'heading' => 'Mijn Drive',
             'sortKey' => $sortKey,

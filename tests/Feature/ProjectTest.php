@@ -102,6 +102,71 @@ test('shared user sees project on /shared', function () {
         ->assertSee('Gedeeld');
 });
 
+test('public project shows in public section for new user', function () {
+    $teacher = User::factory()->create();
+    Project::factory()->for($teacher)->create([
+        'name' => 'Statistiek',
+        'public_permission' => 'read',
+    ]);
+
+    // Fresh student with no projects at all
+    $this->actingAs($this->user)->get('/projects')
+        ->assertOk()
+        ->assertSee('Statistiek')
+        ->assertSee('Publiek toegankelijk');
+});
+
+test('public project is NOT shown to its owner in the public section', function () {
+    Project::factory()->for($this->user)->create([
+        'name' => 'Statistiek',
+        'public_permission' => 'read',
+    ]);
+
+    $resp = $this->actingAs($this->user)->get('/projects')->assertOk();
+    // Statistiek shows once (as own project), not as public
+    expect(substr_count($resp->getContent(), 'Publiek toegankelijk'))->toBe(0);
+});
+
+test('public project is NOT shown twice if user already has explicit share', function () {
+    $teacher = User::factory()->create();
+    $p = Project::factory()->for($teacher)->create([
+        'name' => 'Statistiek',
+        'public_permission' => 'read',
+    ]);
+    $p->users()->attach($this->user, ['permission' => 'write']);
+
+    $resp = $this->actingAs($this->user)->get('/projects')->assertOk();
+    // Statistiek should NOT appear in the public-projects section
+    // (it shows on /shared instead, via the explicit pivot)
+    expect($resp->getContent())->not->toContain('Publiek toegankelijk');
+});
+
+test('public project inside a shared drive is NOT shown in public section', function () {
+    $teacher = User::factory()->teacher()->create();
+    $drive = \App\Models\SharedDrive::factory()->for($teacher, 'owner')->create();
+    Project::factory()->for($teacher)->create([
+        'name' => 'DriveProject',
+        'shared_drive_id' => $drive->id,
+        'public_permission' => 'read',
+    ]);
+
+    $this->actingAs($this->user)->get('/projects')
+        ->assertOk()
+        ->assertDontSee('Publiek toegankelijk');
+});
+
+test('private project of someone else is NOT shown', function () {
+    $teacher = User::factory()->create();
+    Project::factory()->for($teacher)->create([
+        'name' => 'Geheim',
+        'public_permission' => null,
+    ]);
+
+    $this->actingAs($this->user)->get('/projects')
+        ->assertOk()
+        ->assertDontSee('Geheim');
+});
+
 test('trashed project is excluded from my drive index', function () {
     $p = Project::factory()->for($this->user)->create(['name' => 'WeggegooidProject']);
     $p->delete();

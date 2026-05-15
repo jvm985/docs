@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\CompileController;
 use App\Http\Controllers\Api\FileController;
+use App\Http\Controllers\Api\LargeUploadController;
 use App\Http\Controllers\Api\RController;
 use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\EditorController;
@@ -99,6 +100,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/r/state', [RController::class, 'state']);
         Route::post('/r/inspect', [RController::class, 'inspect']);
     });
+
+    // Large file upload to a shared drive (chunked, resumable)
+    Route::post('/api/drives/{drive}/uploads', [LargeUploadController::class, 'init'])->name('drives.uploads.init');
+    Route::get('/api/drives/{drive}/uploads/{uploadId}', [LargeUploadController::class, 'status'])->name('drives.uploads.status');
+    Route::put('/api/drives/{drive}/uploads/{uploadId}/chunks/{index}', [LargeUploadController::class, 'chunk'])
+        ->where('index', '[0-9]+')
+        ->name('drives.uploads.chunk');
+    Route::post('/api/drives/{drive}/uploads/{uploadId}/finish', [LargeUploadController::class, 'finish'])->name('drives.uploads.finish');
+    Route::delete('/api/drives/{drive}/uploads/{uploadId}', [LargeUploadController::class, 'cancel'])->name('drives.uploads.cancel');
 
     Route::get('/api/my-projects', fn () => response()->json(
         request()->user()->projects()->select('id', 'name')->orderBy('name')->get()

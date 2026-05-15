@@ -6,6 +6,7 @@
         <div class="flex items-center gap-2" x-data="{ showCreate: false, showMembers: false, showRename: false }">
             @if($canWrite)
                 <button type="button" @click="showCreate = true" data-testid="new-project-button" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">+ Nieuw project</button>
+                <button type="button" @click="window.dispatchEvent(new CustomEvent('open-large-upload'))" data-testid="upload-large-file-button" class="rounded-lg border border-amber-500 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50">⬆ Upload bestand</button>
             @endif
             @if($isOwner)
                 <button type="button" @click="showMembers = true" data-testid="manage-members-button" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">Leden</button>
@@ -145,4 +146,6 @@
             }
         </script>
     @endpush
+
+    @include('drives._large_upload', ['drive' => $drive, 'canWrite' => $canWrite])
 </x-drive-layout>

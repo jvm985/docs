@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityController as AdminActivityController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\CompileController;
 use App\Http\Controllers\Api\FileController;
@@ -64,6 +65,7 @@ Route::middleware('auth')->group(function () {
     // Beheer (admin only)
     Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users');
     Route::patch('/admin/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('admin.users.role');
+    Route::get('/admin/activity', [AdminActivityController::class, 'index'])->name('admin.activity');
 
     // Prullenbak
     Route::get('/trash', [TrashController::class, 'index'])->name('trash.index');

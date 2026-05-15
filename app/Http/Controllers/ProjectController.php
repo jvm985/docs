@@ -15,6 +15,12 @@ class ProjectController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $q = trim((string) $request->query('q', ''));
+
+        if ($q !== '') {
+            return $this->search($user, $q);
+        }
+
         $projects = $user->projects()
             ->whereNull('shared_drive_id')
             ->with('users')
@@ -25,6 +31,43 @@ class ProjectController extends Controller
             'projects' => $projects,
             'scope' => 'my-drive',
             'heading' => 'Mijn Drive',
+        ]);
+    }
+
+    private function search(User $user, string $q)
+    {
+        $like = '%'.addcslashes($q, '%_\\').'%';
+
+        $myDrive = $user->projects()
+            ->whereNull('shared_drive_id')
+            ->where('name', 'like', $like)
+            ->orderBy('name')
+            ->get();
+
+        $sharedWithMe = $user->sharedProjects()
+            ->where('projects.name', 'like', $like)
+            ->with('owner')
+            ->orderBy('projects.name')
+            ->get();
+
+        $driveIds = $user->ownedSharedDrives()->pluck('id')
+            ->concat($user->sharedDrives()->pluck('shared_drives.id'))
+            ->unique();
+
+        $inSharedDrives = \App\Models\Project::query()
+            ->whereIn('shared_drive_id', $driveIds)
+            ->where('name', 'like', $like)
+            ->with(['owner', 'sharedDrive'])
+            ->orderBy('name')
+            ->get();
+
+        return view('projects.search', [
+            'q' => $q,
+            'myDrive' => $myDrive,
+            'sharedWithMe' => $sharedWithMe,
+            'inSharedDrives' => $inSharedDrives,
+            'scope' => 'search',
+            'heading' => 'Zoeken naar "'.$q.'"',
         ]);
     }
 

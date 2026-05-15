@@ -17,6 +17,15 @@
 
     <main class="flex-1">
         <div class="mx-auto max-w-6xl px-6 py-8">
+            <form method="GET" action="{{ route('projects.index') }}" class="mb-6">
+                <div class="relative">
+                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="search" name="q" value="{{ request('q') }}" placeholder="Zoek in alle drives..."
+                           data-testid="search-input"
+                           class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm focus:border-amber-400 focus:ring-2 focus:ring-amber-200">
+                </div>
+            </form>
+
             <header class="mb-6 flex items-center justify-between gap-4">
                 <h1 class="text-2xl font-semibold" data-testid="page-heading">{{ $heading }}</h1>
                 <div class="flex items-center gap-3">

@@ -10,19 +10,15 @@ if (! file_exists($testDb)) {
     touch($testDb);
 }
 
-pest()->extend(TestCase::class)
-    ->use(DatabaseMigrations::class)
-    ->beforeEach(function () {
-        // Keep project file IO under storage/framework/testing/ — DO NOT call
-        // useStoragePath(), it re-bootstraps the application and drops the
-        // in-progress migration state, leaving the DB without tables.
-        $dir = storage_path('framework/testing/disks/app/private/projects');
-        if (is_dir($dir)) {
-            removeDirRecursive($dir);
-        }
-        @mkdir($dir, 0775, true);
-    })
-    ->in('Feature', 'Browser');
+uses(TestCase::class, DatabaseMigrations::class)->in('Feature', 'Browser');
+
+uses()->beforeEach(function () {
+    $dir = storage_path('framework/testing/disks/app/private/projects');
+    if (is_dir($dir)) {
+        removeDirRecursive($dir);
+    }
+    @mkdir($dir, 0775, true);
+})->in('Feature', 'Browser');
 
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);

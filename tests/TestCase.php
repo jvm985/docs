@@ -11,8 +11,16 @@ abstract class TestCase extends BaseTestCase
 
     protected function setUp(): void
     {
-        file_put_contents('/tmp/test-debug.log', "[DEBUG] TestCase::setUp called for ".static::class."\n", FILE_APPEND);
+        $log = '/tmp/test-debug.log';
+        file_put_contents($log, "[DEBUG] setUp begin: ".static::class."\n", FILE_APPEND);
         parent::setUp();
-        file_put_contents('/tmp/test-debug.log', "[DEBUG] After parent::setUp; users table exists: ".(\Illuminate\Support\Facades\Schema::hasTable('users') ? 'yes' : 'NO')."\n", FILE_APPEND);
+        file_put_contents($log, "[DEBUG] after parent::setUp; default conn=".config('database.default').", db=".config('database.connections.'.config('database.default').'.database').", users? ".(\Illuminate\Support\Facades\Schema::hasTable('users') ? 'YES' : 'NO')."\n", FILE_APPEND);
+
+        // Manual fallback: if DatabaseMigrations didn't actually migrate, do it now.
+        if (! \Illuminate\Support\Facades\Schema::hasTable('users')) {
+            file_put_contents($log, "[DEBUG] running manual migrate:fresh\n", FILE_APPEND);
+            $exit = $this->artisan('migrate:fresh', ['--force' => true, '--seed' => false]);
+            file_put_contents($log, "[DEBUG] manual migrate done; users? ".(\Illuminate\Support\Facades\Schema::hasTable('users') ? 'YES' : 'NO')."\n", FILE_APPEND);
+        }
     }
 }

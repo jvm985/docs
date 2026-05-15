@@ -81,7 +81,7 @@ RUN mkdir -p /usr/local/share/typst/packages/local /usr/share/typst/packages/loc
     && rm -rf /usr/local/share/typst/packages/local/_src
 
 # PHP extensions
-RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip
+RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip sockets
 
 # R packages used by app — fail loud if any required package didn't install
 RUN R -e "install.packages(c('rmarkdown','jsonlite','knitr'), repos='https://cloud.r-project.org', Ncpus=parallel::detectCores())" \

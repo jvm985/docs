@@ -83,6 +83,9 @@ RUN mkdir -p /usr/local/share/typst/packages/local /usr/share/typst/packages/loc
 # PHP extensions
 RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip sockets
 
+# Upload limits (must be >= nginx client_max_body_size)
+COPY docker/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
+
 # R packages used by app — fail loud if any required package didn't install
 RUN R -e "install.packages(c('rmarkdown','jsonlite','knitr'), repos='https://cloud.r-project.org', Ncpus=parallel::detectCores())" \
     && R -e "stopifnot(all(c('rmarkdown','jsonlite','knitr') %in% rownames(installed.packages())))"

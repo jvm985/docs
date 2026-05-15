@@ -1,12 +1,8 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
-use Tests\TestCase;
-
-uses(TestCase::class, DatabaseMigrations::class);
 
 test('homepage redirects to projects', function () {
     $this->get('/')->assertRedirect('/projects');

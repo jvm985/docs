@@ -10,7 +10,7 @@ if (! file_exists($testDb)) {
     touch($testDb);
 }
 
-uses(TestCase::class, DatabaseMigrations::class)->in('Feature', 'Browser');
+uses(TestCase::class, DatabaseMigrations::class)->in('Feature');
 
 uses()->beforeEach(function () {
     // Belt-and-braces: ensure schema exists. DatabaseMigrations trait should
@@ -22,7 +22,7 @@ uses()->beforeEach(function () {
         removeDirRecursive($dir);
     }
     @mkdir($dir, 0775, true);
-})->in('Feature', 'Browser');
+})->in('Feature');
 
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\CompileController;
 use App\Http\Controllers\Api\FileController;
 use App\Http\Controllers\Api\RController;
@@ -58,6 +59,10 @@ Route::middleware('auth')->group(function () {
     Route::patch('/drives/{drive}/rename', [SharedDriveController::class, 'rename'])->name('drives.rename');
     Route::post('/drives/{drive}/members', [SharedDriveController::class, 'manageMembers'])->name('drives.members');
     Route::delete('/drives/{drive}', [SharedDriveController::class, 'destroy'])->name('drives.destroy');
+
+    // Beheer (admin only)
+    Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users');
+    Route::patch('/admin/users/{user}/role', [AdminUserController::class, 'updateRole'])->name('admin.users.role');
 
     // Prullenbak
     Route::get('/trash', [TrashController::class, 'index'])->name('trash.index');

@@ -3,6 +3,13 @@
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+// Ensure the sqlite test database file exists before Laravel boots.
+$testDb = __DIR__.'/../database/testing.sqlite';
+if (! file_exists($testDb)) {
+    @mkdir(dirname($testDb), 0775, true);
+    touch($testDb);
+}
+
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function () {

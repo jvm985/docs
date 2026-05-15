@@ -28,3 +28,6 @@ Thumbs.db
 
 # Pest browser screenshots
 /tests/Browser/Screenshots/*.png
+
+# Test database file (per phpunit.xml)
+/database/testing.sqlite

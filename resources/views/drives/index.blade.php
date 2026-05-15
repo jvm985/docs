@@ -37,7 +37,7 @@
                 </p>
             </div>
         @else
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div class="rounded-xl border border-gray-200 bg-white">
                 <table class="min-w-full text-sm" data-testid="drives-table">
                     <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
                         <tr>

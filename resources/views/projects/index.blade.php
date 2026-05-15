@@ -19,7 +19,7 @@
                 <button type="button" @click="showCreate = true" class="mt-3 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">+ Nieuw project</button>
             </div>
         @else
-            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <div class="rounded-xl border border-gray-200 bg-white">
                 <table class="min-w-full text-sm" data-testid="projects-table">
                     <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
                         <tr>

@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['user_id', 'name', 'public_permission', 'primary_file', 'compiler'])]
+#[Fillable(['user_id', 'shared_drive_id', 'name', 'public_permission', 'primary_file', 'compiler'])]
 class Project extends Model
 {
     /** @use HasFactory<ProjectFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $casts = [
         'public_permission' => 'string',
@@ -30,6 +31,11 @@ class Project extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function sharedDrive(): BelongsTo
+    {
+        return $this->belongsTo(SharedDrive::class);
+    }
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class)
@@ -41,6 +47,14 @@ class Project extends Model
     {
         if ($user && $this->user_id === $user->id) {
             return 'write';
+        }
+
+        if ($user && $this->shared_drive_id) {
+            $drive = $this->relationLoaded('sharedDrive') ? $this->sharedDrive : $this->sharedDrive()->first();
+            $drivePermission = $drive?->permissionFor($user);
+            if ($drivePermission) {
+                return $drivePermission;
+            }
         }
 
         if ($user) {
@@ -67,6 +81,11 @@ class Project extends Model
     public function isOwnedBy(?User $user): bool
     {
         return $user !== null && $this->user_id === $user->id;
+    }
+
+    public function isInSharedDrive(): bool
+    {
+        return $this->shared_drive_id !== null;
     }
 
     public function filesPath(string $sub = ''): string

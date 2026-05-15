@@ -19,11 +19,41 @@ class ProjectPolicy
 
     public function delete(User $user, Project $project): bool
     {
-        return $project->isOwnedBy($user);
+        if ($project->isOwnedBy($user)) {
+            return true;
+        }
+
+        if ($project->shared_drive_id) {
+            return $project->sharedDrive?->canWrite($user) ?? false;
+        }
+
+        return false;
+    }
+
+    public function restore(User $user, Project $project): bool
+    {
+        return $this->delete($user, $project);
+    }
+
+    public function forceDelete(User $user, Project $project): bool
+    {
+        if ($project->isOwnedBy($user)) {
+            return true;
+        }
+
+        if ($project->shared_drive_id) {
+            return $project->sharedDrive?->isOwnedBy($user) ?? false;
+        }
+
+        return false;
     }
 
     public function share(User $user, Project $project): bool
     {
+        if ($project->isInSharedDrive()) {
+            return false;
+        }
+
         return $project->isOwnedBy($user);
     }
 

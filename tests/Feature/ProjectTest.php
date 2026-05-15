@@ -15,7 +15,7 @@ test('user can create a project', function () {
     expect(Project::where('user_id', $this->user->id)->where('name', 'My Project')->exists())->toBeTrue();
 });
 
-test('owner can delete own project', function () {
+test('owner can soft-delete own project (move to trash)', function () {
     $p = Project::factory()->for($this->user)->create();
 
     $this->actingAs($this->user)
@@ -23,6 +23,7 @@ test('owner can delete own project', function () {
         ->assertRedirect();
 
     expect(Project::find($p->id))->toBeNull();
+    expect(Project::withTrashed()->find($p->id)?->trashed())->toBeTrue();
 });
 
 test('non-owner cannot delete project', function () {
@@ -77,23 +78,35 @@ test('non-owner cannot share project', function () {
         ->assertForbidden();
 });
 
-test('shared user sees project in their list', function () {
+test('my drive index lists own projects but excludes shared-with-me', function () {
+    $own = Project::factory()->for($this->user)->create(['name' => 'Eigen project']);
+    $other = User::factory()->create();
+    $shared = Project::factory()->for($other)->create(['name' => 'Andermans project']);
+    $shared->users()->attach($this->user, ['permission' => 'read']);
+
+    $this->actingAs($this->user)->get('/projects')
+        ->assertOk()
+        ->assertSee('Mijn Drive')
+        ->assertSee('Eigen project')
+        ->assertDontSee('Andermans project');
+});
+
+test('shared user sees project on /shared', function () {
     $other = User::factory()->create();
     $p = Project::factory()->for($this->user)->create(['name' => 'Gedeeld']);
     $p->users()->attach($other->id, ['permission' => 'read']);
 
-    $response = $this->actingAs($other)->get('/projects');
-    $response->assertOk()->assertSee('Gedeeld')->assertSee('Met mij gedeeld');
+    $this->actingAs($other)->get('/shared')
+        ->assertOk()
+        ->assertSee('Met mij gedeeld')
+        ->assertSee('Gedeeld');
 });
 
-test('public project shows in public list for other users', function () {
-    $other = User::factory()->create();
-    Project::factory()->for($this->user)->create([
-        'name' => 'Open Source',
-        'public_permission' => 'read',
-    ]);
+test('trashed project is excluded from my drive index', function () {
+    $p = Project::factory()->for($this->user)->create(['name' => 'WeggegooidProject']);
+    $p->delete();
 
-    $this->actingAs($other)->get('/projects')
-        ->assertSee('Publieke projecten')
-        ->assertSee('Open Source');
+    $this->actingAs($this->user)->get('/projects')
+        ->assertOk()
+        ->assertDontSee('WeggegooidProject');
 });

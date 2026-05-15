@@ -13,8 +13,8 @@ test('projects index loads after login', function () {
     $user = User::factory()->create(['name' => 'Test User']);
 
     $this->visit("/__test-login/{$user->id}")
-        ->assertSee('Projecten')
-        ->assertSee('Welkom, Test User');
+        ->assertSee('Mijn Drive')
+        ->assertSee('Test User');
 });
 
 test('projects index shows existing project', function () {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\SharedDrive;
 use App\Models\User;
 use App\Services\FileService;
 use Illuminate\Http\Request;
@@ -14,20 +15,31 @@ class ProjectController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $own = $user->projects()->with('users')->orderBy('name')->get();
-        $sharedWithMe = $user->sharedProjects()->with('owner')->orderBy('name')->get();
-        $publicProjects = Project::query()
-            ->whereNotNull('public_permission')
-            ->where('user_id', '!=', $user->id)
-            ->whereDoesntHave('users', fn ($q) => $q->where('users.id', $user->id))
-            ->with('owner')
-            ->orderBy('name')
+        $projects = $user->projects()
+            ->whereNull('shared_drive_id')
+            ->with('users')
+            ->orderByDesc('updated_at')
             ->get();
 
         return view('projects.index', [
-            'ownProjects' => $own,
-            'sharedProjects' => $sharedWithMe,
-            'publicProjects' => $publicProjects,
+            'projects' => $projects,
+            'scope' => 'my-drive',
+            'heading' => 'Mijn Drive',
+        ]);
+    }
+
+    public function sharedWithMe(Request $request)
+    {
+        $user = $request->user();
+        $projects = $user->sharedProjects()
+            ->with('owner')
+            ->orderByDesc('projects.updated_at')
+            ->get();
+
+        return view('projects.shared', [
+            'projects' => $projects,
+            'scope' => 'shared',
+            'heading' => 'Met mij gedeeld',
         ]);
     }
 
@@ -35,9 +47,18 @@ class ProjectController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
+            'shared_drive_id' => ['nullable', 'integer', 'exists:shared_drives,id'],
         ]);
+
+        $driveId = $data['shared_drive_id'] ?? null;
+        if ($driveId) {
+            $drive = SharedDrive::findOrFail($driveId);
+            Gate::authorize('createProjectIn', $drive);
+        }
+
         $project = $request->user()->projects()->create([
             'name' => $data['name'],
+            'shared_drive_id' => $driveId,
         ]);
         $files->basePath($project);
 
@@ -46,27 +67,21 @@ class ProjectController extends Controller
 
     public function rename(Request $request, Project $project)
     {
-        if (! $project->isOwnedBy($request->user())) {
-            abort(403);
-        }
+        Gate::authorize('update', $project);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
         ]);
         $project->update(['name' => $data['name']]);
 
-        return redirect()->route('projects.index');
+        return back();
     }
 
     public function destroy(Request $request, Project $project)
     {
         Gate::authorize('delete', $project);
-        $base = storage_path('app/private/projects/'.$project->id);
         $project->delete();
-        if (is_dir($base)) {
-            $this->rrmdir($base);
-        }
 
-        return redirect()->route('projects.index');
+        return back();
     }
 
     public function duplicate(Request $request, Project $project, FileService $files)
@@ -103,19 +118,6 @@ class ProjectController extends Controller
             $project->users()->sync($sync);
         });
 
-        return redirect()->route('projects.index');
-    }
-
-    private function rrmdir(string $dir): void
-    {
-        $items = scandir($dir) ?: [];
-        foreach ($items as $name) {
-            if ($name === '.' || $name === '..') {
-                continue;
-            }
-            $full = $dir.'/'.$name;
-            is_dir($full) ? $this->rrmdir($full) : @unlink($full);
-        }
-        @rmdir($dir);
+        return back();
     }
 }

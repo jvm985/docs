@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\RController;
 use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\EditorController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\SharedDriveController;
+use App\Http\Controllers\TrashController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -38,12 +40,31 @@ Route::post('/logout', function () {
 
 // App
 Route::middleware('auth')->group(function () {
+    // Mijn Drive
     Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');
     Route::post('/projects/{project}/duplicate', [ProjectController::class, 'duplicate'])->name('projects.duplicate');
     Route::post('/projects/{project}/share', [ProjectController::class, 'share'])->name('projects.share');
     Route::patch('/projects/{project}/rename', [ProjectController::class, 'rename'])->name('projects.rename');
     Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
+
+    // Met mij gedeeld
+    Route::get('/shared', [ProjectController::class, 'sharedWithMe'])->name('projects.shared');
+
+    // Gedeelde drives
+    Route::get('/drives', [SharedDriveController::class, 'index'])->name('drives.index');
+    Route::post('/drives', [SharedDriveController::class, 'store'])->name('drives.store');
+    Route::get('/drives/{drive}', [SharedDriveController::class, 'show'])->name('drives.show');
+    Route::patch('/drives/{drive}/rename', [SharedDriveController::class, 'rename'])->name('drives.rename');
+    Route::post('/drives/{drive}/members', [SharedDriveController::class, 'manageMembers'])->name('drives.members');
+    Route::delete('/drives/{drive}', [SharedDriveController::class, 'destroy'])->name('drives.destroy');
+
+    // Prullenbak
+    Route::get('/trash', [TrashController::class, 'index'])->name('trash.index');
+    Route::post('/trash/projects/{project}/restore', [TrashController::class, 'restoreProject'])->name('trash.projects.restore');
+    Route::delete('/trash/projects/{project}', [TrashController::class, 'forceDeleteProject'])->name('trash.projects.forceDelete');
+    Route::post('/trash/drives/{drive}/restore', [TrashController::class, 'restoreDrive'])->name('trash.drives.restore');
+    Route::delete('/trash/drives/{drive}', [TrashController::class, 'forceDeleteDrive'])->name('trash.drives.forceDelete');
 
     Route::get('/editor/{project}', [EditorController::class, 'show'])->name('editor');
     Route::get('/editor/{project}/pdf', [EditorController::class, 'pdf'])->name('editor.pdf');

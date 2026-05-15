@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'google_id', 'avatar'])]
+#[Fillable(['name', 'email', 'password', 'google_id', 'avatar', 'role'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -36,5 +36,22 @@ class User extends Authenticatable
         return $this->belongsToMany(Project::class)
             ->withPivot('permission')
             ->withTimestamps();
+    }
+
+    public function ownedSharedDrives(): HasMany
+    {
+        return $this->hasMany(SharedDrive::class, 'owner_id');
+    }
+
+    public function sharedDrives(): BelongsToMany
+    {
+        return $this->belongsToMany(SharedDrive::class, 'shared_drive_user')
+            ->withPivot('permission')
+            ->withTimestamps();
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->role === 'teacher';
     }
 }

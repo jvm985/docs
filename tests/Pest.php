@@ -13,6 +13,10 @@ if (! file_exists($testDb)) {
 uses(TestCase::class, DatabaseMigrations::class)->in('Feature', 'Browser');
 
 uses()->beforeEach(function () {
+    // Belt-and-braces: ensure schema exists. DatabaseMigrations trait should
+    // already have migrated, but Pest 4 + browser plugin can skip it.
+    \Illuminate\Support\Facades\Schema::hasTable('users') || $this->artisan('migrate:fresh');
+
     $dir = storage_path('framework/testing/disks/app/private/projects');
     if (is_dir($dir)) {
         removeDirRecursive($dir);

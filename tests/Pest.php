@@ -13,11 +13,12 @@ if (! file_exists($testDb)) {
 uses(TestCase::class, DatabaseMigrations::class)->in('Feature');
 
 uses()->beforeEach(function () {
-    // Belt-and-braces: ensure schema exists. DatabaseMigrations trait should
-    // already have migrated, but Pest 4 + browser plugin can skip it.
-    \Illuminate\Support\Facades\Schema::hasTable('users') || $this->artisan('migrate:fresh');
+    // CSRF tokens aren't relevant for in-process tests.
+    $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
 
-    $dir = storage_path('framework/testing/disks/app/private/projects');
+    // Redirect project storage to a per-suite test dir.
+    app()->useStoragePath(storage_path('framework/testing/disks'));
+    $dir = storage_path('app/private/projects');
     if (is_dir($dir)) {
         removeDirRecursive($dir);
     }

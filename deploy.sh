@@ -55,7 +55,6 @@ step "Running feature test suite (one-off container with dev deps, sqlite :memor
 # Production image is built with --no-dev, so pest/collision aren't available.
 # Spin up an ephemeral container, install dev deps, run tests, then drop it.
 if docker compose run --rm --no-deps -T \
-        -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: \
         --entrypoint sh \
         "$SERVICE" -c "composer install --no-interaction --prefer-dist --quiet 2>&1 | tail -3 && php artisan test --compact --testsuite=Feature"; then
     ok "feature tests passed"

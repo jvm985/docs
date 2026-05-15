@@ -51,7 +51,7 @@ docker compose exec -T "$SERVICE" php artisan view:clear
 docker compose exec -T "$SERVICE" php artisan config:clear
 docker compose exec -T "$SERVICE" php artisan route:clear
 
-step "Running feature test suite (one-off container with dev deps, sqlite :memory:)"
+step "Running feature test suite (ephemeral container, file-based sqlite)"
 # Production image is built with --no-dev, so pest/collision aren't available.
 # Spin up an ephemeral container, install dev deps, run tests, then drop it.
 if docker compose run --rm --no-deps -T \

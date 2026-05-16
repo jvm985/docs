@@ -92,6 +92,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/refresh-link', [FileController::class, 'refreshLink']);
 
         Route::post('/compile', [CompileController::class, 'compile']);
+        Route::post('/compile/cancel', [CompileController::class, 'cancel']);
         Route::get('/compile/log', [CompileController::class, 'lastLog']);
 
         Route::patch('/settings', [CompileController::class, 'updateSettings']);

@@ -58,6 +58,8 @@ const state = {
     rVars: [],
     rPlots: [],
     plotIndex: 0,
+    compileInFlight: false,
+    compileAbort: null,
 };
 
 let editorView = null;
@@ -460,10 +462,17 @@ function renderToolbar() {
             toolbar.appendChild(sel);
         }
         const btn = document.createElement('button');
-        btn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600';
-        btn.textContent = 'Compileren';
+        btn.id = 'compile-btn';
+        btn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 inline-flex items-center gap-1.5';
         btn.dataset.testid = 'compile-btn';
-        btn.addEventListener('click', () => compile(false));
+        btn.innerHTML = '<span class="compile-btn-label">Compileren</span>';
+        btn.addEventListener('click', () => {
+            if (state.compileInFlight) {
+                cancelCompile();
+            } else {
+                compile(false);
+            }
+        });
         toolbar.appendChild(btn);
 
         if (ext === 'tex') {
@@ -675,17 +684,65 @@ async function compile(clean = false) {
     if (!COMPILABLE.includes(ext)) return;
     await saveImmediately();
     document.getElementById('compile-status').textContent = clean ? 'schoon compileren…' : 'bezig…';
+
+    state.compileAbort = new AbortController();
+    setCompileButtonRunning(true);
+    state.compileInFlight = true;
+
     try {
-        const res = await api('POST', apiUrl('/compile'), {
-            path,
-            compiler: ext === 'tex' ? state.compiler : null,
-            clean,
+        const res = await fetch(apiUrl('/compile'), {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': csrf(),
+            },
+            credentials: 'same-origin',
+            signal: state.compileAbort.signal,
+            body: JSON.stringify({ path, compiler: ext === 'tex' ? state.compiler : null, clean }),
         });
-        document.getElementById('compile-status').textContent = res.status === 'success' ? 'klaar' : 'fout';
-        showCompileOutput(res);
+        const data = res.ok ? await res.json() : null;
+        if (!res.ok) throw new Error(`${res.status}`);
+        document.getElementById('compile-status').textContent = data.status === 'success' ? 'klaar' : 'fout';
+        showCompileOutput(data);
     } catch (e) {
-        document.getElementById('compile-status').textContent = 'fout';
-        showCompileOutput({ status: 'failed', log: String(e.message), pdf_url: null });
+        if (e.name === 'AbortError') {
+            // Cancelled — keep the previous PDF visible, just update status.
+            document.getElementById('compile-status').textContent = 'gestopt';
+        } else {
+            document.getElementById('compile-status').textContent = 'fout';
+            showCompileOutput({ status: 'failed', log: String(e.message), pdf_url: null });
+        }
+    } finally {
+        state.compileInFlight = false;
+        state.compileAbort = null;
+        setCompileButtonRunning(false);
+    }
+}
+
+async function cancelCompile() {
+    if (!state.compileInFlight) return;
+    // Tell server to kill the running process, then abort the fetch.
+    try {
+        await fetch(apiUrl('/compile/cancel'), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': csrf() },
+            credentials: 'same-origin',
+        });
+    } catch {}
+    if (state.compileAbort) state.compileAbort.abort();
+}
+
+function setCompileButtonRunning(running) {
+    const btn = document.getElementById('compile-btn');
+    if (!btn) return;
+    if (running) {
+        btn.className = 'rounded bg-red-500 px-3 py-1 text-xs font-medium text-white hover:bg-red-600 inline-flex items-center gap-1.5';
+        btn.innerHTML = '<svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-opacity="0.25"/><path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span>Stop compilatie</span>';
+    } else {
+        btn.className = 'rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600 inline-flex items-center gap-1.5';
+        btn.innerHTML = '<span class="compile-btn-label">Compileren</span>';
     }
 }
 

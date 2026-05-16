@@ -32,6 +32,14 @@ class CompileController extends Controller
         ]);
     }
 
+    public function cancel(Request $request, Project $project)
+    {
+        Gate::authorize('view', $project);
+        $killed = $this->compile->cancel($project, $request->user());
+
+        return response()->json(['cancelled' => $killed]);
+    }
+
     public function updateSettings(Request $request, Project $project)
     {
         if (! $project->canWrite($request->user())) {

@@ -11,7 +11,46 @@ class CompileService
 {
     public const SUPPORTED_LATEX_COMPILERS = ['pdflatex', 'xelatex', 'lualatex'];
 
+    private ?string $pidFile = null;
+
     public function __construct(private FileService $files) {}
+
+    /**
+     * Path where the currently-running compile process writes its PID.
+     * Used by CompileController::cancel to kill the process.
+     */
+    public function pidPath(Project $project, User $user): string
+    {
+        $dir = storage_path('app/private/projects/'.$project->id.'/users/'.$user->id.'/output');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        return $dir.'/compile.pid';
+    }
+
+    public function cancel(Project $project, User $user): bool
+    {
+        $path = $this->pidPath($project, $user);
+        if (! is_file($path)) {
+            return false;
+        }
+        $pid = (int) trim((string) @file_get_contents($path));
+        if ($pid <= 0) {
+            @unlink($path);
+
+            return false;
+        }
+        // SIGTERM first, then SIGKILL after a short grace period.
+        @posix_kill($pid, defined('SIGTERM') ? SIGTERM : 15);
+        usleep(200_000);
+        if (@posix_kill($pid, 0)) {
+            @posix_kill($pid, defined('SIGKILL') ? SIGKILL : 9);
+        }
+        @unlink($path);
+
+        return true;
+    }
 
     public function canCompile(string $extension): bool
     {
@@ -35,14 +74,22 @@ class CompileService
             $this->wipeOutputDir($project, $user, $sourceRel);
         }
         $outputDir = $this->ensureOutputDir($project, $user, $sourceRel);
+        $this->pidFile = $this->pidPath($project, $user);
 
-        return match ($ext) {
-            'tex' => $this->compileLatex($sourceDir, $sourceRel, $outputDir, $compiler ?? 'pdflatex'),
-            'md' => $this->compileMarkdown($sourceDir, $sourceRel, $outputDir),
-            'rmd' => $this->compileRmd($sourceDir, $sourceRel, $outputDir),
-            'typ' => $this->compileTypst($sourceDir, $sourceRel, $outputDir),
-            default => throw new RuntimeException('Unsupported.'),
-        };
+        try {
+            return match ($ext) {
+                'tex' => $this->compileLatex($sourceDir, $sourceRel, $outputDir, $compiler ?? 'pdflatex'),
+                'md' => $this->compileMarkdown($sourceDir, $sourceRel, $outputDir),
+                'rmd' => $this->compileRmd($sourceDir, $sourceRel, $outputDir),
+                'typ' => $this->compileTypst($sourceDir, $sourceRel, $outputDir),
+                default => throw new RuntimeException('Unsupported.'),
+            };
+        } finally {
+            if ($this->pidFile && is_file($this->pidFile)) {
+                @unlink($this->pidFile);
+            }
+            $this->pidFile = null;
+        }
     }
 
     public function lastLog(Project $project, User $user, string $relPath): ?array
@@ -268,9 +315,18 @@ class CompileService
         ];
         $process = new Process($cmd, $cwd, $env, null, $timeout);
         try {
-            $process->run();
+            // Start async so we can record the pid for /cancel; then wait().
+            $process->start();
+            $pid = $process->getPid();
+            if ($pid !== null && $this->pidFile !== null) {
+                @file_put_contents($this->pidFile, (string) $pid);
+            }
+            $process->wait();
         } catch (\Throwable $e) {
             // surface a usable message in the log
+        }
+        if ($this->pidFile !== null) {
+            @unlink($this->pidFile);
         }
 
         return $process;

@@ -133,6 +133,14 @@ const api = async (method, url, body) => {
 
 const apiUrl = (suffix) => `/api/projects/${PROJECT_ID}${suffix}`;
 
+// Suppress the side panel (bookmarks/outline) that browsers' PDF viewers
+// auto-open. Works in Chrome (native viewer) and Firefox (PDF.js).
+function pdfViewerUrl(url) {
+    if (!url) return url;
+    const sep = url.includes('#') ? '&' : '#';
+    return url + sep + 'pagemode=none&navpanes=0&toolbar=1';
+}
+
 const treeEl = document.getElementById('filetree');
 
 function renderTree() {
@@ -325,7 +333,7 @@ async function openFile(path) {
         showEditor(data.content, data.extension);
     } else if (data.kind === 'viewable' && data.extension === 'pdf') {
         const pdf = document.getElementById('pdf-frame');
-        pdf.src = data.url;
+        pdf.src = pdfViewerUrl(data.url);
         pdf.classList.remove('hidden');
         document.getElementById('output-empty').classList.add('hidden');
     } else if (data.kind === 'viewable') {
@@ -928,7 +936,7 @@ function showCompileOutput(res) {
     const pdf = document.getElementById('pdf-frame');
     const log = document.getElementById('compile-log');
     if (res.pdf_url) {
-        pdf.src = res.pdf_url;
+        pdf.src = pdfViewerUrl(res.pdf_url);
         pdf.classList.remove('hidden');
         log.classList.add('hidden');
     } else {

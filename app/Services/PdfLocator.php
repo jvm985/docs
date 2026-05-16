@@ -44,8 +44,12 @@ class PdfLocator
 
     private function looksLikeToc(string $text): bool
     {
-        // 3+ TOC-style leader lines on the same page is a strong signal.
-        return preg_match_all('/\.{4,}\s*\d+\s*$/m', $text) >= 3;
+        // TOC pages have either solid dot leaders (`....N`) or spaced dots
+        // (`. . . . . N`). 3+ such lines is a strong signal.
+        $solid = preg_match_all('/\.{4,}\s*\d+\s*$/m', $text);
+        $spaced = preg_match_all('/(?:\.\s){4,}\.?\s*\d+\s*$/m', $text);
+
+        return ($solid + $spaced) >= 3;
     }
 
     /**

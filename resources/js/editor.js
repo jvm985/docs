@@ -376,6 +376,7 @@ function showEditor(content, ext) {
     const startState = EditorState.create({
         doc: content,
         extensions: [
+            EditorView.lineWrapping,
             lineNumbers(),
             history(),
             foldGutter(),

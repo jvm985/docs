@@ -137,10 +137,57 @@ const apiUrl = (suffix) => `/api/projects/${PROJECT_ID}${suffix}`;
 
 // Suppress the side panel (bookmarks/outline) that browsers' PDF viewers
 // auto-open. Works in Chrome (native viewer) and Firefox (PDF.js).
-function pdfViewerUrl(url) {
+// If `preservedHash` contains `page=N`, restores that page after reload.
+function pdfViewerUrl(url, preservedHash = '') {
     if (!url) return url;
+    let hashParts = ['pagemode=none', 'navpanes=0', 'toolbar=1'];
+    if (preservedHash) {
+        // Pick page/zoom/view bits out of the existing hash, drop our defaults.
+        const m = preservedHash.match(/(?:^|[#&])(page=\d+|zoom=[\d.]+|view=[A-Za-z]+(?:,[\d-]+)*)/g) || [];
+        hashParts = m.map(s => s.replace(/^[#&]/, '')).concat(hashParts);
+    }
     const sep = url.includes('#') ? '&' : '#';
-    return url + sep + 'pagemode=none&navpanes=0&toolbar=1';
+    return url + sep + hashParts.join('&');
+}
+
+function readPdfHash() {
+    const pdf = document.getElementById('pdf-frame');
+    try {
+        return pdf?.contentWindow?.location?.hash || '';
+    } catch {
+        return '';
+    }
+}
+
+// Forward-sync: jump PDF viewer to the page matching the editor cursor line.
+let locateTimer = null;
+let lastLocatedPage = null;
+function scheduleLocateInPdf() {
+    if (locateTimer) clearTimeout(locateTimer);
+    locateTimer = setTimeout(locateInPdf, 400);
+}
+async function locateInPdf() {
+    if (!editorView || !state.activeFile) return;
+    const pdf = document.getElementById('pdf-frame');
+    if (!pdf || pdf.classList.contains('hidden') || !pdf.src) return;
+    // The PDF the viewer shows is for primary_file (or active file).
+    const path = state.primaryFile || state.activeFile.path;
+    const line = editorView.state.doc.lineAt(editorView.state.selection.main.head).number;
+    try {
+        const res = await api('POST', apiUrl('/pdf-locate'), { path, line });
+        if (!res || !res.page || res.page === lastLocatedPage) return;
+        lastLocatedPage = res.page;
+        // Navigate the inner PDF viewer without full reload via the URL hash.
+        try {
+            pdf.contentWindow.location.hash = '#page=' + res.page + '&pagemode=none&navpanes=0&toolbar=1';
+        } catch {
+            // Cross-origin fallback: hard set src with new page hash
+            const base = pdf.src.split('#')[0];
+            pdf.src = base + '#page=' + res.page + '&pagemode=none&navpanes=0&toolbar=1';
+        }
+    } catch (e) {
+        // Silent — locate is best-effort
+    }
 }
 
 const treeEl = document.getElementById('filetree');
@@ -397,6 +444,7 @@ function showEditor(content, ext) {
             ]),
             EditorView.updateListener.of(update => {
                 if (update.docChanged && isCurrentEditable()) scheduleSave();
+                if (update.selectionSet || update.docChanged) scheduleLocateInPdf();
             }),
             langCompartment.of(langFor(ext)),
             readOnlyCompartment.of(EditorState.readOnly.of(!editable)),

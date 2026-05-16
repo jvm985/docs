@@ -93,6 +93,7 @@ Route::middleware('auth')->group(function () {
 
         Route::post('/compile', [CompileController::class, 'compile']);
         Route::post('/compile/cancel', [CompileController::class, 'cancel']);
+        Route::post('/pdf-locate', [CompileController::class, 'locate']);
         Route::get('/compile/log', [CompileController::class, 'lastLog']);
 
         Route::patch('/settings', [CompileController::class, 'updateSettings']);

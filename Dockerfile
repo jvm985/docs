@@ -23,6 +23,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates unzip xz-utils git \
     fontconfig \
+    poppler-utils \
     libsqlite3-dev sqlite3 libxml2-dev libonig-dev libicu-dev libzip-dev libpng-dev \
     texlive-latex-base \
     texlive-latex-recommended \

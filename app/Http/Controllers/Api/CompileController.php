@@ -82,33 +82,61 @@ class CompileController extends Controller
         }
         $idx = max(0, min(count($lines) - 1, $line - 1));
 
-        // Try to use a chunk of pure-prose text (more unique). Walk back/forward
-        // a few lines until we have enough non-trivial content.
+        // Walk first downward (then upward) for prose-only lines: skip
+        // headings, fences, bullets, HR rules, bold-lead labels, page-break
+        // comments, very short lines. Collect until ~80 chars of needle.
+        $collected = $this->pickProse($lines, $idx, 15)
+                  ?: $this->pickProse($lines, $idx, -15);
+
+        return implode(' ', $collected);
+    }
+
+    /**
+     * @param  string[]  $lines
+     * @return string[]
+     */
+    private function pickProse(array $lines, int $start, int $step): array
+    {
         $collected = [];
-        $minChars = 25;
         $totalChars = 0;
-        for ($offset = 0; $offset <= $context; $offset++) {
-            foreach ([$idx + $offset, $idx - $offset] as $candidate) {
-                if ($candidate < 0 || $candidate >= count($lines)) {
-                    continue;
-                }
-                $ln = trim($lines[$candidate]);
-                // Skip code-fence markers, headings, blank, very short.
-                if ($ln === '' || str_starts_with($ln, '```') || strlen($ln) < 8) {
-                    continue;
-                }
-                // Strip leading bullet/heading markup so the needle is just prose.
-                $ln = preg_replace('/^[#\-*]+\s+/', '', $ln) ?? $ln;
-                $ln = preg_replace('/^\d+(\.\d+)*\s+/', '', $ln) ?? $ln;
-                $collected[] = $ln;
-                $totalChars += strlen($ln);
-                if ($totalChars >= $minChars * 2) {
-                    break 2;
-                }
+        $count = count($lines);
+        $end = $step > 0 ? min($count - 1, $start + abs($step)) : max(0, $start + $step);
+        $iter = $step > 0 ? range($start, $end) : range($start, $end, -1);
+
+        foreach ($iter as $i) {
+            $ln = trim($lines[$i] ?? '');
+            if ($ln === '') {
+                continue;
+            }
+            if (str_starts_with($ln, '```')) {
+                continue;
+            }
+            if (str_starts_with($ln, '#')) {
+                continue;     // heading
+            }
+            if (str_starts_with($ln, '-')) {
+                continue;     // bullet
+            }
+            if (preg_match('/^[-*_]{3,}\s*$/', $ln)) {
+                continue;     // HR
+            }
+            if (preg_match('/^\*\*[^*]+\*\*\s*$/', $ln)) {
+                continue;     // bold-only lead line
+            }
+            if (str_starts_with($ln, '<!--')) {
+                continue;     // html comment / page marker
+            }
+            if (strlen($ln) < 30) {
+                continue;     // too short to be unique
+            }
+            $collected[] = $ln;
+            $totalChars += strlen($ln);
+            if ($totalChars >= 80) {
+                break;
             }
         }
 
-        return implode(' ', $collected);
+        return $collected;
     }
 
     public function updateSettings(Request $request, Project $project)

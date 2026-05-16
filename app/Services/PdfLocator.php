@@ -27,13 +27,25 @@ class PdfLocator
             return null;
         }
 
+        // Skip TOC pages — they contain every heading and would always match
+        // any short needle. A TOC page is detected by having many
+        // "Title......N" leader-dot patterns.
         foreach ($pages as $idx => $text) {
+            if ($this->looksLikeToc($text)) {
+                continue;
+            }
             if ($text !== '' && str_contains($this->normalise($text), $needleNorm)) {
                 return $idx + 1;
             }
         }
 
         return null;
+    }
+
+    private function looksLikeToc(string $text): bool
+    {
+        // 3+ TOC-style leader lines on the same page is a strong signal.
+        return preg_match_all('/\.{4,}\s*\d+\s*$/m', $text) >= 3;
     }
 
     /**

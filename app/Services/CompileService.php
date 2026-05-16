@@ -159,7 +159,8 @@ class CompileService
             $this->rString($outputDir),
             $this->rString($outputDir),
         );
-        $process = $this->run(['Rscript', '-e', $script], dirname($sourceAbs), 180);
+        // Big documents with xelatex first-run can take long (font cache build).
+        $process = $this->run(['Rscript', '-e', $script], dirname($sourceAbs), 600);
         $log = $process->getOutput()."\n".$process->getErrorOutput();
         $status = is_file($pdf) ? 'success' : 'failed';
         $this->writeLog($outputDir, $log);

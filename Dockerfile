@@ -21,7 +21,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # System packages: tools, PHP build deps, LaTeX, Pandoc, R
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates unzip xz-utils git \
+    curl ca-certificates unzip xz-utils git gosu \
     fontconfig \
     poppler-utils \
     libsqlite3-dev sqlite3 libxml2-dev libonig-dev libicu-dev libzip-dev libpng-dev \
@@ -86,6 +86,7 @@ RUN docker-php-ext-install pdo pdo_sqlite mbstring xml intl zip sockets
 
 # Upload limits (must be >= nginx client_max_body_size)
 COPY docker/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
+COPY docker/fpm-nonroot.conf /usr/local/etc/php-fpm.d/zz-nonroot.conf
 
 # R packages used by app — fail loud if any required package didn't install
 RUN R -e "install.packages(c('rmarkdown','jsonlite','knitr'), repos='https://cloud.r-project.org', Ncpus=parallel::detectCores())" \

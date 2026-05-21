@@ -4,6 +4,8 @@ services:
   app:
     build: .
     restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.5
     volumes:
       - public:/var/www/html/public
       - storage:/var/www/html/storage
@@ -15,6 +17,8 @@ services:
   worker:
     build: .
     restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
     command: php artisan queue:work --sleep=3 --tries=3 --timeout=120
     volumes:
       - storage:/var/www/html/storage
@@ -26,6 +30,8 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.5
     ports:
       - "127.0.0.1:8080:80"
     volumes:

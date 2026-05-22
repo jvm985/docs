@@ -43,6 +43,9 @@ Route::post('/logout', function () {
 
 // App
 Route::middleware('auth')->group(function () {
+    // Info
+    Route::view('/info', 'info')->name('info');
+
     // Mijn Drive
     Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
     Route::post('/projects', [ProjectController::class, 'store'])->name('projects.store');

@@ -43,7 +43,7 @@ const app = document.getElementById('app');
 const PROJECT_ID = Number(app.dataset.projectId);
 const CAN_WRITE = app.dataset.canWrite === '1';
 
-const COMPILABLE = ['tex', 'md', 'rmd', 'typ'];
+const COMPILABLE = ['tex', 'md', 'rmd', 'rnw', 'rtex', 'typ'];
 const RUNNABLE = ['r'];
 
 const state = {
@@ -86,7 +86,7 @@ const langFor = (ext) => {
         case 'yaml': case 'yml': return yaml();
         case 'c': case 'h': case 'cc': case 'cpp': case 'cxx': case 'hpp': case 'hxx': case 'hh': return cpp();
         case 'java': return java();
-        case 'tex': case 'sty': case 'cls': case 'bib': case 'ltx': return StreamLanguage.define(stex);
+        case 'tex': case 'sty': case 'cls': case 'bib': case 'ltx': case 'rnw': case 'rtex': return StreamLanguage.define(stex);
         case 'r': case 'R': return StreamLanguage.define(rMode);
         case 'sh': case 'bash': case 'zsh': case 'fish': case 'ksh': return StreamLanguage.define(shell);
         case 'rb': case 'gemspec': case 'rake': return StreamLanguage.define(ruby);
@@ -284,7 +284,7 @@ function icon(type, ext) {
     s.className = 'inline-block w-4 text-center text-xs';
     if (type === 'folder') s.textContent = '📁';
     else {
-        const map = { tex: '📄', md: '📝', r: 'R', rmd: 'R', typ: '📐', json: '{}', xml: '<>', pdf: '📕' };
+        const map = { tex: '📄', md: '📝', r: 'R', rmd: 'R', rnw: 'R', rtex: 'R', typ: '📐', json: '{}', xml: '<>', pdf: '📕' };
         s.textContent = map[ext] || '·';
     }
     return s;

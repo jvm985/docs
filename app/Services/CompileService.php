@@ -54,7 +54,7 @@ class CompileService
 
     public function canCompile(string $extension): bool
     {
-        return in_array($extension, ['tex', 'md', 'rmd', 'typ'], true);
+        return in_array($extension, ['tex', 'md', 'rmd', 'rnw', 'rtex', 'typ'], true);
     }
 
     public function compile(Project $project, User $user, string $relPath, ?string $compiler = null, bool $clean = false): array
@@ -81,6 +81,7 @@ class CompileService
                 'tex' => $this->compileLatex($sourceDir, $sourceRel, $outputDir, $compiler ?? 'pdflatex'),
                 'md' => $this->compileMarkdown($sourceDir, $sourceRel, $outputDir),
                 'rmd' => $this->compileRmd($sourceDir, $sourceRel, $outputDir),
+                'rnw', 'rtex' => $this->compileRnw($sourceDir, $sourceRel, $outputDir, $compiler ?? 'pdflatex'),
                 'typ' => $this->compileTypst($sourceDir, $sourceRel, $outputDir),
                 default => throw new RuntimeException('Unsupported.'),
             };
@@ -217,6 +218,51 @@ class CompileService
             'log' => $log,
             'has_pdf' => is_file($pdf),
             'compiler' => 'rmarkdown',
+        ];
+    }
+
+    private function compileRnw(string $sourceDir, string $sourceRel, string $outputDir, string $compiler): array
+    {
+        if (! in_array($compiler, self::SUPPORTED_LATEX_COMPILERS, true)) {
+            throw new RuntimeException('Unsupported compiler.');
+        }
+        $sourceAbs = $sourceDir.'/'.$sourceRel;
+        $pdf = $outputDir.'/output.pdf';
+        @unlink($pdf);
+
+        // knit_hooks per knit2pdf signature:
+        //  knit2pdf(input, output, compiler, envir, quiet, clean) — kept defaults.
+        // We chdir() inside R so relative file refs in the .Rnw resolve, then
+        // copy the produced PDF to outputDir/output.pdf (knit2pdf names it
+        // after the .Rnw basename).
+        $base = pathinfo($sourceAbs, PATHINFO_FILENAME);
+        $script = sprintf(
+            'setwd(%s); knitr::knit2pdf(%s, compiler=%s, quiet=TRUE); '
+            .'file.rename(paste0(%s, ".pdf"), file.path(%s, "output.pdf"))',
+            $this->rString(dirname($sourceAbs)),
+            $this->rString($sourceAbs),
+            $this->rString($compiler),
+            $this->rString($base),
+            $this->rString($outputDir),
+        );
+        $process = $this->run(['Rscript', '-e', $script], dirname($sourceAbs), 600);
+        $log = $process->getOutput()."\n".$process->getErrorOutput();
+
+        // knit2pdf leaves the intermediate .tex next to the source — copy it
+        // to outputDir so the user can inspect it via the existing log/PDF UI.
+        $tex = dirname($sourceAbs).'/'.$base.'.tex';
+        if (is_file($tex)) {
+            @copy($tex, $outputDir.'/'.$base.'.tex');
+        }
+
+        $status = is_file($pdf) ? 'success' : 'failed';
+        $this->writeLog($outputDir, $log);
+
+        return [
+            'status' => $status,
+            'log' => $log,
+            'has_pdf' => is_file($pdf),
+            'compiler' => 'knitr+'.$compiler,
         ];
     }
 

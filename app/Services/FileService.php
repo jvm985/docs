@@ -15,7 +15,7 @@ class FileService
     public const TEXT_EXTENSIONS = [
         'tex', 'sty', 'cls', 'bib',
         'md', 'rmd',
-        'r', 'rmd',
+        'r', 'rnw', 'rtex',
         'typ',
         'json', 'xml', 'yaml', 'yml', 'toml',
         'txt', 'log',
@@ -381,7 +381,7 @@ class FileService
     public function editorLanguage(string $extension): string
     {
         return match ($extension) {
-            'tex', 'sty', 'cls', 'bib' => 'latex',
+            'tex', 'sty', 'cls', 'bib', 'rnw', 'rtex' => 'latex',
             'md', 'rmd' => 'markdown',
             'r' => 'r',
             'json' => 'json',

@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-lang-european \
     texlive-science \
     texlive-bibtex-extra \
+    texlive-plain-generic \
     lmodern \
     pandoc \
     r-base \

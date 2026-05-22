@@ -7,6 +7,15 @@ use App\Models\User;
 
 class ProjectPolicy
 {
+    public function before(?User $user, string $ability): ?bool
+    {
+        if ($ability === 'view' && $user?->isAdmin()) {
+            return true;
+        }
+
+        return null;
+    }
+
     public function view(?User $user, Project $project): bool
     {
         return $project->canRead($user);

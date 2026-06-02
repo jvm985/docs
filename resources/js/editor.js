@@ -393,8 +393,11 @@ async function openFile(path) {
         v.classList.remove('hidden');
     } else if (data.kind === 'interactive' && data.subkind === 'geogebra') {
         showGeoGebraOutput();
+        // Geen cache-buster op de URL — de asset-endpoint stuurt al
+        // `Cache-Control: no-store`. Een `?v=` zou bovendien fout aanplakken
+        // achter de bestaande `?path=…`-query.
         await mountGeoGebra({
-            url: data.url + (data.v ? `?v=${data.v}` : ''),
+            url: data.url,
             path: state.activeFile.path,
             editable: isCurrentEditable(),
         });

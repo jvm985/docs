@@ -109,7 +109,15 @@
                     <span class="font-semibold text-gray-500">Console</span>
                     <button id="ggb-clear-console" class="text-gray-400 hover:text-red-500" title="Console leegmaken">Wissen</button>
                 </div>
-                <div id="ggb-console" class="overflow-y-auto p-2 font-mono text-xs" style="height: 50%" data-testid="ggb-console"></div>
+                <div class="flex items-center gap-1 border-b bg-white px-2 py-1">
+                    <span class="font-mono text-xs text-gray-400">›</span>
+                    <input id="ggb-input"
+                           class="flex-1 rounded border border-gray-200 px-2 py-1 font-mono text-xs focus:border-amber-400 focus:outline-none"
+                           placeholder="GeoGebra commando — bv. f(x)=x^2 — Enter om uit te voeren"
+                           data-testid="ggb-input">
+                    <button id="ggb-run" class="rounded bg-amber-500 px-2 py-1 text-xs font-medium text-white hover:bg-amber-600" title="Uitvoeren (Enter)">Run</button>
+                </div>
+                <div id="ggb-console" class="overflow-y-auto p-2 font-mono text-xs" style="height: 40%" data-testid="ggb-console"></div>
                 <div class="resize-v" data-resize="ggb-split"></div>
                 <div class="flex flex-1 flex-col overflow-hidden">
                     <div class="flex border-b text-xs">

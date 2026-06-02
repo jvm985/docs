@@ -68,6 +68,28 @@ export async function mountGeoGebra(cfg) {
     const containerId = 'ggb-applet-' + Math.random().toString(36).slice(2, 9);
     mount.innerHTML = `<div id="${containerId}" class="h-full w-full"></div>`;
 
+    // De applet draait in een geogebra.org-iframe en kan onze asset-URL niet
+    // direct fetchen (cross-origin, geen sessie-cookie). We fetchen 'm hier
+    // (zelfde origin, cookies meegestuurd) en sturen 'm als base64 mee zodat
+    // GeoGebra de bytes inline ontvangt. Voor een leeg net-aangemaakt bestand
+    // (0 bytes) starten we met een lege constructie.
+    let ggbBase64 = null;
+    try {
+        const resp = await fetch(cfg.url, { credentials: 'same-origin' });
+        if (resp.ok) {
+            const buf = await resp.arrayBuffer();
+            if (buf.byteLength > 0) {
+                ggbBase64 = arrayBufferToBase64(buf);
+            }
+        } else if (resp.status !== 404) {
+            mount.innerHTML = `<div class="p-4 text-sm text-red-500">Kon bestand niet ophalen (HTTP ${resp.status})</div>`;
+            return;
+        }
+    } catch (e) {
+        mount.innerHTML = `<div class="p-4 text-sm text-red-500">Kon bestand niet ophalen: ${e.message}</div>`;
+        return;
+    }
+
     try {
         await loadDeployGgb();
     } catch (e) {
@@ -90,7 +112,7 @@ export async function mountGeoGebra(cfg) {
     const params = {
         id: containerId,
         appName: 'classic',
-        filename: cfg.url,
+        ...(ggbBase64 ? { ggbBase64 } : {}),
         width: mount.clientWidth || 800,
         height: mount.clientHeight || 600,
         showToolBar: cfg.editable,
@@ -126,6 +148,39 @@ export async function mountGeoGebra(cfg) {
     document.getElementById('ggb-clear-console').onclick = () => {
         document.getElementById('ggb-console').innerHTML = '';
     };
+
+    const input = document.getElementById('ggb-input');
+    const runBtn = document.getElementById('ggb-run');
+    const runCommand = () => {
+        if (!session.api) return;
+        const cmd = input.value.trim();
+        if (!cmd) return;
+        // Toon het commando in de console.
+        const host = document.getElementById('ggb-console');
+        const row = document.createElement('div');
+        row.className = 'block text-blue-600';
+        row.textContent = '> ' + cmd;
+        host.appendChild(row);
+        let ok = false;
+        try { ok = session.api.evalCommand(cmd); } catch (e) { ok = false; }
+        if (!ok) {
+            const err = document.createElement('div');
+            err.className = 'block text-red-500';
+            err.textContent = 'Commando geweigerd door GeoGebra';
+            host.appendChild(err);
+        }
+        host.scrollTop = host.scrollHeight;
+        input.value = '';
+    };
+    runBtn.onclick = runCommand;
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            runCommand();
+        }
+    };
+    input.disabled = !cfg.editable;
+    runBtn.disabled = !cfg.editable;
 }
 
 function onChange(session, kind, name) {
@@ -222,6 +277,16 @@ function scheduleSave(session) {
             if (indicator) indicator.textContent = 'opslaan mislukt';
         }
     }, 800);
+}
+
+function arrayBufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
 }
 
 async function postBinary(path, base64) {

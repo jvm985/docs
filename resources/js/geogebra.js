@@ -131,6 +131,16 @@ export async function mountGeoGebra(cfg) {
                 api.registerRemoveListener(name => onChange(session, 'remove', name));
                 api.registerClearListener(() => onChange(session, 'clear', ''));
                 api.registerRenameListener((oldName, newName) => onChange(session, 'rename', `${oldName} → ${newName}`));
+                // Catch-all: GeoGebra registreert élke undoable wijziging via
+                // de undo-listener. Dit vangt edge-cases die de specifieke
+                // add/update/remove hooks missen (bv. attribuut-aanpassingen).
+                if (typeof api.registerStoreUndoListener === 'function') {
+                    api.registerStoreUndoListener(() => {
+                        if (session.suppressUntilLoaded) return;
+                        refreshObjectList(api);
+                        scheduleSave(session);
+                    });
+                }
             }
             window.addEventListener('resize', session._onResize = () => {
                 try { api.setSize(mount.clientWidth, mount.clientHeight); } catch (e) {}
@@ -171,6 +181,12 @@ export async function mountGeoGebra(cfg) {
         }
         host.scrollTop = host.scrollHeight;
         input.value = '';
+        // Direct opslaan i.p.v. wachten op de listeners (die niet altijd vuren
+        // voor commando's gestart vanuit onze JS).
+        if (ok && cfg.editable) {
+            refreshObjectList(session.api);
+            scheduleSave(session);
+        }
     };
     runBtn.onclick = runCommand;
     input.onkeydown = (e) => {
@@ -262,18 +278,30 @@ function refreshObjectList(api) {
 function scheduleSave(session) {
     const indicator = document.getElementById('save-indicator');
     const saved = document.getElementById('saved-indicator');
-    if (indicator) { indicator.classList.remove('hidden'); }
+    if (indicator) { indicator.classList.remove('hidden'); indicator.textContent = 'opslaan…'; }
     if (saved) { saved.classList.add('hidden'); }
     if (session.saveTimer) clearTimeout(session.saveTimer);
-    session.saveTimer = setTimeout(async () => {
+    session.saveTimer = setTimeout(() => {
         if (!session.api) return;
+        // getBase64 is async via de deployggb iframe-proxy: gebruik de callback
+        // variant. De sync return zou een leeg/oud resultaat geven.
         try {
-            const base64 = session.api.getBase64();
-            await postBinary(session.path, base64);
-            if (indicator) indicator.classList.add('hidden');
-            if (saved) saved.classList.remove('hidden');
+            session.api.getBase64(async (base64) => {
+                if (!base64) {
+                    if (indicator) indicator.textContent = 'opslaan mislukt (geen data)';
+                    return;
+                }
+                try {
+                    await postBinary(session.path, base64);
+                    if (indicator) indicator.classList.add('hidden');
+                    if (saved) saved.classList.remove('hidden');
+                } catch (e) {
+                    console.error('GeoGebra POST /file/binary failed', e);
+                    if (indicator) indicator.textContent = 'opslaan mislukt';
+                }
+            });
         } catch (e) {
-            console.error('GeoGebra save failed', e);
+            console.error('GeoGebra getBase64 failed', e);
             if (indicator) indicator.textContent = 'opslaan mislukt';
         }
     }, 800);

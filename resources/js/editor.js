@@ -36,6 +36,7 @@ import { clojure } from '@codemirror/legacy-modes/mode/clojure';
 import { elm } from '@codemirror/legacy-modes/mode/elm';
 import { erlang } from '@codemirror/legacy-modes/mode/erlang';
 import { julia } from '@codemirror/legacy-modes/mode/julia';
+import { mountGeoGebra, unmountGeoGebra } from './geogebra.js';
 
 const csrf = () => document.querySelector('meta[name=csrf-token]')?.content || '';
 
@@ -376,6 +377,7 @@ async function openFile(path) {
     const dfView = document.getElementById('dataframe-viewer');
     dfView.classList.add('hidden');
     dfView.style.display = '';
+    unmountGeoGebra();
 
     if (data.kind === 'text') {
         document.getElementById('editor-mount').classList.remove('hidden');
@@ -389,6 +391,13 @@ async function openFile(path) {
         const v = document.getElementById('image-viewer');
         v.innerHTML = `<img src="${data.url}" class="mx-auto max-w-full">`;
         v.classList.remove('hidden');
+    } else if (data.kind === 'interactive' && data.subkind === 'geogebra') {
+        showGeoGebraOutput();
+        await mountGeoGebra({
+            url: data.url + (data.v ? `?v=${data.v}` : ''),
+            path: state.activeFile.path,
+            editable: isCurrentEditable(),
+        });
     } else {
         const b = document.getElementById('binary-notice');
         b.classList.remove('hidden');
@@ -397,6 +406,17 @@ async function openFile(path) {
 
     renderToolbar();
     await loadLastCompileLog();
+}
+
+function showGeoGebraOutput() {
+    document.getElementById('output-empty').classList.add('hidden');
+    document.getElementById('compile-log').classList.add('hidden');
+    document.getElementById('pdf-frame').classList.add('hidden');
+    document.getElementById('r-output').classList.add('hidden');
+    document.getElementById('r-output').classList.remove('flex');
+    const g = document.getElementById('ggb-output');
+    g.classList.remove('hidden');
+    g.classList.add('flex');
 }
 
 function formatSize(n) {
@@ -1251,10 +1271,13 @@ function bindResize() {
             const rightStart = right.offsetWidth;
             const consoleEl = document.getElementById('r-console');
             const consoleStart = consoleEl ? consoleEl.offsetHeight : 0;
+            const ggbConsoleEl = document.getElementById('ggb-console');
+            const ggbConsoleStart = ggbConsoleEl ? ggbConsoleEl.offsetHeight : 0;
             const onMove = (ev) => {
                 if (which === 'left') left.style.width = Math.max(160, leftStart + (ev.clientX - startX)) + 'px';
                 else if (which === 'right') right.style.width = Math.max(220, rightStart - (ev.clientX - startX)) + 'px';
                 else if (which === 'r-split' && consoleEl) consoleEl.style.height = Math.max(60, consoleStart + (ev.clientY - startY)) + 'px';
+                else if (which === 'ggb-split' && ggbConsoleEl) ggbConsoleEl.style.height = Math.max(60, ggbConsoleStart + (ev.clientY - startY)) + 'px';
             };
             const onUp = () => {
                 window.removeEventListener('mousemove', onMove);

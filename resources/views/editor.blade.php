@@ -67,6 +67,7 @@
                 <div id="image-viewer" class="hidden h-full w-full overflow-auto bg-gray-100 p-4 text-center"></div>
                 <div id="binary-notice" class="hidden h-full w-full p-4 text-sm text-gray-500"></div>
                 <div id="dataframe-viewer" class="hidden h-full w-full flex-col bg-white"></div>
+                <div id="geogebra-mount" class="hidden h-full w-full"></div>
             </div>
         </main>
 
@@ -100,6 +101,21 @@
                     </div>
                     <div id="r-vars" class="flex-1 overflow-y-auto p-2 text-xs"></div>
                     <div id="r-plots" class="hidden flex-1 flex-col overflow-hidden p-2"></div>
+                </div>
+            </div>
+
+            <div id="ggb-output" class="hidden flex-1 flex-col overflow-hidden" data-testid="ggb-output">
+                <div class="flex items-center justify-between border-b bg-gray-50 px-2 py-1 text-xs">
+                    <span class="font-semibold text-gray-500">Console</span>
+                    <button id="ggb-clear-console" class="text-gray-400 hover:text-red-500" title="Console leegmaken">Wissen</button>
+                </div>
+                <div id="ggb-console" class="overflow-y-auto p-2 font-mono text-xs" style="height: 50%" data-testid="ggb-console"></div>
+                <div class="resize-v" data-resize="ggb-split"></div>
+                <div class="flex flex-1 flex-col overflow-hidden">
+                    <div class="flex border-b text-xs">
+                        <button class="px-3 py-1 font-medium text-amber-600 border-b-2 border-amber-500">Objecten <span id="ggb-object-count" class="ml-1 hidden rounded-full bg-amber-100 px-1.5 text-amber-700"></span></button>
+                    </div>
+                    <div id="ggb-objects" class="flex-1 overflow-y-auto p-2 text-xs" data-testid="ggb-objects"></div>
                 </div>
             </div>
         </aside>

@@ -34,7 +34,7 @@ class FileController extends Controller
         $path = (string) $request->query('path', '');
         $data = $this->files->readFile($project, $path);
 
-        if ($data['kind'] === 'viewable') {
+        if ($data['kind'] === 'viewable' || $data['kind'] === 'interactive') {
             $data['url'] = route('editor.asset', ['project' => $project->id, 'path' => $path]);
         }
 
@@ -58,6 +58,25 @@ class FileController extends Controller
             return response()->json(['error' => 'Linked files are read-only. Use refresh to update from the source.'], 423);
         }
         $this->files->writeFile($project, $data['path'], $data['content']);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Vervang de inhoud van een binair bestand met base64-encoded data.
+     * Gebruikt door interactive editors (bv. de GeoGebra-applet voor .ggb).
+     */
+    public function saveBinary(Request $request, Project $project)
+    {
+        Gate::authorize('update', $project);
+        $data = $request->validate([
+            'path' => ['required', 'string'],
+            'base64' => ['required', 'string'],
+        ]);
+        if ($this->links->isLinked($project, $this->files->validateRelativePath($data['path']))) {
+            return response()->json(['error' => 'Linked files are read-only. Use refresh to update from the source.'], 423);
+        }
+        $this->files->writeBinaryBase64($project, $data['path'], $data['base64']);
 
         return response()->json(['ok' => true]);
     }

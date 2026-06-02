@@ -29,6 +29,15 @@ class FileService
         'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'pdf',
     ];
 
+    /**
+     * Bestanden met een eigen in-browser editor / applet i.p.v. een tekst-editor of
+     * statische viewer. Voor elk type levert readFile() een `kind:'interactive'`
+     * resultaat met een `subkind` zodat de frontend de juiste applet kan mounten.
+     */
+    public const INTERACTIVE_EXTENSIONS = [
+        'ggb' => 'geogebra',
+    ];
+
     public function __construct(private LinkRegistry $links) {}
 
     public function basePath(Project $project): string
@@ -126,6 +135,17 @@ class FileService
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $size = @filesize($abs) ?: 0;
 
+        if (array_key_exists($ext, self::INTERACTIVE_EXTENSIONS)) {
+            return [
+                'kind' => 'interactive',
+                'subkind' => self::INTERACTIVE_EXTENSIONS[$ext],
+                'name' => $name,
+                'extension' => $ext,
+                'size' => $size,
+                'v' => @filemtime($abs) ?: time(),
+            ];
+        }
+
         if (in_array($ext, self::TEXT_EXTENSIONS, true) || $size === 0) {
             if ($size > self::MAX_TEXT_BYTES) {
                 return [
@@ -170,6 +190,23 @@ class FileService
             throw new RuntimeException('File not found.');
         }
         file_put_contents($abs, $content);
+    }
+
+    /**
+     * Schrijf binaire data (base64-encoded). Gebruikt voor interactive bestanden
+     * die door een client-side applet zijn aangepast (bv. .ggb via GeoGebra).
+     */
+    public function writeBinaryBase64(Project $project, string $path, string $base64): void
+    {
+        $abs = $this->absolutePath($project, $path);
+        if (! is_file($abs)) {
+            throw new RuntimeException('File not found.');
+        }
+        $bin = base64_decode($base64, true);
+        if ($bin === false) {
+            throw new RuntimeException('Invalid base64 payload.');
+        }
+        file_put_contents($abs, $bin);
     }
 
     public function create(Project $project, string $path, string $type, ?string $content = null): array

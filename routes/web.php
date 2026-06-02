@@ -88,6 +88,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/tree', [FileController::class, 'tree']);
         Route::get('/file', [FileController::class, 'read']);
         Route::put('/file', [FileController::class, 'save']);
+        Route::put('/file/binary', [FileController::class, 'saveBinary']);
         Route::post('/file', [FileController::class, 'create']);
         Route::delete('/file', [FileController::class, 'delete']);
         Route::patch('/file/rename', [FileController::class, 'rename']);

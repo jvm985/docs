@@ -29,12 +29,15 @@
      data-compiler="{{ $project->compiler ?? 'pdflatex' }}"
      class="flex h-full flex-col">
 
-    <header class="flex h-10 items-center justify-between border-b bg-white px-4">
+    <header class="flex h-11 items-center justify-between border-b border-brand-950/40 bg-brand-900 px-4 text-gray-200">
         <div class="flex items-center gap-3">
-            <a href="{{ route('projects.index') }}" class="text-sm text-gray-500 hover:text-gray-800">&larr; Projecten</a>
-            <span class="text-sm font-semibold">{{ $project->name }}</span>
+            <a href="{{ route('projects.index') }}" class="flex items-center gap-2 text-sm text-gray-300 transition hover:text-white">
+                <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-amber-500 text-xs font-bold text-white">D</span>
+                <span>&larr; Projecten</span>
+            </a>
+            <span class="text-sm font-semibold text-white">{{ $project->name }}</span>
             @if(! $canWrite)
-                <span class="rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-500" data-testid="readonly-badge">Alleen lezen</span>
+                <span class="rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-200" data-testid="readonly-badge">Alleen lezen</span>
             @endif
         </div>
         <div id="toolbar" class="flex items-center gap-2"></div>

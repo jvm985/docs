@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -6,8 +7,40 @@
 @source '../**/*.js';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Brand: dark navy header + accent surfaces — geleend van Overleaf
+     * (#1b222c) zodat de chrome zelfverzekerd en rustig aanvoelt. */
+    --color-brand-50: #f3f5f7;
+    --color-brand-100: #e1e5eb;
+    --color-brand-700: #2b3340;
+    --color-brand-800: #232a35;
+    --color-brand-900: #1b222c;
+    --color-brand-950: #11161e;
+
+    /* Primary action: dieper, rustiger groen i.p.v. de oude felle amber.
+     * Aangezien ~150 `amber-*` klassen verspreid staan in de templates,
+     * remap-pen we de amber-schaal naar deze groene palette via Tailwind 4
+     * theme tokens. Eén bron, geen mass-rename. */
+    --color-amber-50: #ecf7ef;
+    --color-amber-100: #d4ecdc;
+    --color-amber-200: #adddbf;
+    --color-amber-300: #79c898;
+    --color-amber-400: #43ad6f;
+    --color-amber-500: #1f8c4d;
+    --color-amber-600: #166d3b;
+    --color-amber-700: #105530;
+    --color-amber-800: #0d4326;
+    --color-amber-900: #0a371e;
+    --color-amber-950: #061f11;
+}
+
+/* Subtiele body-typo + smoothing voor scherpe Inter rendering. */
+body {
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* CodeMirror scroll guarantees */

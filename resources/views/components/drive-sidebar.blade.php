@@ -11,12 +11,11 @@
 @endphp
 
 <aside class="w-64 shrink-0 border-r border-gray-200 bg-white">
-    <div class="flex items-center gap-2 px-5 py-5">
-        <a href="{{ route('projects.index') }}" class="text-lg font-semibold text-gray-900">Docs</a>
+    <div class="flex items-center justify-end gap-1 px-5 py-4">
         <a href="{{ route('info') }}"
            data-testid="nav-info"
            title="Over Docs"
-           class="inline-flex h-5 w-5 items-center justify-center rounded-full {{ ($scope ?? '') === 'info' ? 'bg-amber-100 text-amber-700' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700' }}">
+           class="inline-flex h-6 w-6 items-center justify-center rounded-full {{ ($scope ?? '') === 'info' ? 'bg-amber-100 text-amber-700' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700' }}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01"/></svg>
         </a>
     </div>

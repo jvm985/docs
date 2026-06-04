@@ -12,17 +12,24 @@
 </head>
 <body class="min-h-full bg-gray-50 text-gray-900">
 
-<div class="flex min-h-screen">
+<header class="sticky top-0 z-40 flex h-12 items-center justify-between border-b border-brand-950/40 bg-brand-900 px-4 text-sm text-gray-200" data-testid="topbar">
+    <a href="{{ route('projects.index') }}" class="flex items-center gap-2 font-semibold text-white">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-amber-500 text-xs font-bold text-white">D</span>
+        <span class="tracking-tight">Docs</span>
+    </a>
+    <div class="flex items-center gap-3" data-testid="user-bar">
+        <span class="hidden sm:inline" data-testid="user-name">{{ auth()->user()?->name }}</span>
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button class="rounded-md border border-gray-500/40 px-3 py-1 text-xs font-medium text-gray-200 transition hover:bg-white/10" data-testid="logout-button">Uitloggen</button>
+        </form>
+    </div>
+</header>
+
+<div class="flex min-h-[calc(100vh-3rem)]">
     <x-drive-sidebar :scope="$scope" :activeDriveId="$activeDriveId" />
 
     <main class="flex-1">
-        <div class="sticky top-0 z-30 flex items-center justify-end gap-3 border-b border-gray-200 bg-white/90 px-6 py-3 backdrop-blur" data-testid="user-bar">
-            <span class="hidden text-sm text-gray-700 sm:inline" data-testid="user-name">{{ auth()->user()?->name }}</span>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100" data-testid="logout-button">Uitloggen</button>
-            </form>
-        </div>
 
         <div class="mx-auto max-w-6xl px-6 py-8">
             <form method="GET" action="{{ route('projects.index') }}" class="mb-6">

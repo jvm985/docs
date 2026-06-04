@@ -1,36 +1,26 @@
 <x-drive-layout :scope="$scope" :heading="$heading">
-    <x-slot:actions>
-        <button type="button"
-                x-data
-                @click="$dispatch('open-create-project')"
-                data-testid="new-project-button"
-                class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">
-            + Nieuw project
-        </button>
-    </x-slot:actions>
-
     <div x-data="projectsTable()" @open-create-project.window="showCreate = true">
 
         @include('projects._create_dialog')
 
         @if($projects->isEmpty())
-            <div class="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center" data-testid="no-projects">
+            <div class="rounded-md border border-dashed border-gray-300 bg-white p-10 text-center" data-testid="no-projects">
                 <p class="text-sm text-gray-500">Nog geen projecten in Mijn Drive.</p>
-                <button type="button" @click="showCreate = true" class="mt-3 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600">+ Nieuw project</button>
+                <button type="button" @click="showCreate = true" class="mt-3 rounded-full bg-amber-500 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-600">Nieuw project</button>
             </div>
         @else
-            <div class="rounded-xl border border-gray-200 bg-white">
+            <div class="overflow-hidden rounded-md border border-gray-200 bg-white">
                 <table class="min-w-full text-sm" data-testid="projects-table">
-                    <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                    <thead class="border-b border-gray-200 bg-white text-xs uppercase tracking-wider text-gray-500">
                         <tr>
-                            <th class="px-4 py-3 text-left font-medium">
+                            <th class="px-4 py-3 text-left font-semibold">
                                 <x-sort-header key="name" label="Naam" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                             </th>
-                            <th class="px-4 py-3 text-left font-medium">Gedeeld met</th>
-                            <th class="px-4 py-3 text-left font-medium">
+                            <th class="px-4 py-3 text-left font-semibold">Gedeeld met</th>
+                            <th class="px-4 py-3 text-left font-semibold">
                                 <x-sort-header key="public" label="Zichtbaarheid" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                             </th>
-                            <th class="px-4 py-3 text-left font-medium">
+                            <th class="px-4 py-3 text-left font-semibold">
                                 <x-sort-header key="updated" label="Gewijzigd" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                             </th>
                             <th class="w-12 px-2 py-3"></th>

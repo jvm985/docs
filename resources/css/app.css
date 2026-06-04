@@ -1,5 +1,8 @@
-@import 'tailwindcss';
+/* Inter MOET vóór de tailwindcss-import staan — CSS @imports zijn alleen
+ * geldig vóór alle andere rules, en Tailwind 4's framework-import inlinet
+ * direct waardoor latere @imports door Vite gestript worden. */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';

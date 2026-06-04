@@ -1266,6 +1266,7 @@ function bindResize() {
     const right = document.getElementById('right-pane');
     document.querySelectorAll('[data-resize]').forEach(handle => {
         handle.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // alleen primary mouse-button
             e.preventDefault();
             const which = handle.dataset.resize;
             const startX = e.clientX;
@@ -1276,7 +1277,15 @@ function bindResize() {
             const consoleStart = consoleEl ? consoleEl.offsetHeight : 0;
             const ggbConsoleEl = document.getElementById('ggb-console');
             const ggbConsoleStart = ggbConsoleEl ? ggbConsoleEl.offsetHeight : 0;
+
+            const isVertical = which === 'r-split' || which === 'ggb-split';
+            handle.classList.add('active');
+            document.body.classList.add('is-resizing', isVertical ? 'cursor-row' : 'cursor-col');
+
             const onMove = (ev) => {
+                // Verloren primary-button → cleanup. Browser stuurt soms geen
+                // mouseup als de focus de tab verlaat tijdens een drag.
+                if (ev.buttons === 0) { onUp(); return; }
                 if (which === 'left') left.style.width = Math.max(160, leftStart + (ev.clientX - startX)) + 'px';
                 else if (which === 'right') right.style.width = Math.max(220, rightStart - (ev.clientX - startX)) + 'px';
                 else if (which === 'r-split' && consoleEl) consoleEl.style.height = Math.max(60, consoleStart + (ev.clientY - startY)) + 'px';
@@ -1285,9 +1294,14 @@ function bindResize() {
             const onUp = () => {
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('mouseup', onUp);
+                window.removeEventListener('blur', onUp);
+                handle.classList.remove('active');
+                document.body.classList.remove('is-resizing', 'cursor-col', 'cursor-row');
             };
             window.addEventListener('mousemove', onMove);
             window.addEventListener('mouseup', onUp);
+            // Failsafe: als de tab focus verliest tijdens een drag, ook cleanen.
+            window.addEventListener('blur', onUp);
         });
     });
 }

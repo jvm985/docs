@@ -9,9 +9,18 @@
     <style>
         [x-cloak]{display:none!important}
         .resize-h { width: 5px; cursor: col-resize; background: transparent; transition: background .15s; flex-shrink: 0; }
-        .resize-h:hover, .resize-h.active { background: #f59e0b; }
+        .resize-h:hover, .resize-h.active { background: #1f8c4d; }
         .resize-v { height: 5px; cursor: row-resize; background: transparent; transition: background .15s; flex-shrink: 0; }
-        .resize-v:hover, .resize-v.active { background: #f59e0b; }
+        .resize-v:hover, .resize-v.active { background: #1f8c4d; }
+        /* Tijdens een actieve drag de iframe (pdf-frame) + andere captors
+         * neutraliseren zodat de muis-events bij window aankomen. Zonder dit
+         * vangt de iframe mousemove + mouseup zodra de cursor erover gaat,
+         * waardoor (a) de PDF alleen groter kan worden en (b) mouseup wordt
+         * gemist en de handler "hangt" tot de volgende hover. */
+        body.is-resizing { user-select: none; }
+        body.is-resizing iframe { pointer-events: none; }
+        body.is-resizing.cursor-col { cursor: col-resize; }
+        body.is-resizing.cursor-row { cursor: row-resize; }
         .filetree-row.drop-target { background-color: #fef3c7; outline: 2px dashed #f59e0b; outline-offset: -2px; }
         .filetree-row { user-select: none; }
         .cm-editor { height: 100%; }

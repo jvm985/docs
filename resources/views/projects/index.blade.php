@@ -13,14 +13,14 @@
                 <table class="min-w-full text-sm" data-testid="projects-table">
                     <thead class="border-b border-gray-200 bg-white text-xs uppercase tracking-wider text-gray-500">
                         <tr>
-                            <th class="px-4 py-3 text-left font-semibold">
+                            <th class="px-4 py-2 text-left font-semibold">
                                 <x-sort-header key="name" label="Naam" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                             </th>
-                            <th class="px-4 py-3 text-left font-semibold">Gedeeld met</th>
-                            <th class="px-4 py-3 text-left font-semibold">
+                            <th class="px-4 py-2 text-left font-semibold">Gedeeld met</th>
+                            <th class="px-4 py-2 text-left font-semibold">
                                 <x-sort-header key="public" label="Zichtbaarheid" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                             </th>
-                            <th class="px-4 py-3 text-left font-semibold">
+                            <th class="px-4 py-2 text-left font-semibold">
                                 <x-sort-header key="updated" label="Gewijzigd" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                             </th>
                             <th class="w-12 px-2 py-3"></th>
@@ -29,29 +29,29 @@
                     <tbody class="divide-y divide-gray-100">
                         @foreach($projects as $project)
                             <tr class="hover:bg-gray-50" data-testid="project-row">
-                                <td class="px-4 py-3">
-                                    <a href="{{ route('editor', $project) }}" class="font-medium text-gray-900 hover:text-amber-600" data-testid="project-link">
+                                <td class="px-4 py-2">
+                                    <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600" data-testid="project-link">
                                         {{ $project->name }}
                                     </a>
                                 </td>
-                                <td class="px-4 py-3 text-gray-600">
+                                <td class="px-4 py-2 text-gray-600">
                                     @if($project->users->isEmpty())
                                         <span class="text-gray-400">—</span>
                                     @else
                                         {{ $project->users->count() }} {{ $project->users->count() === 1 ? 'persoon' : 'personen' }}
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">
+                                <td class="px-4 py-2">
                                     @if($project->public_permission)
                                         <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">Publiek ({{ $project->public_permission === 'write' ? 'lezen+schrijven' : 'alleen lezen' }})</span>
                                     @else
                                         <span class="text-xs text-gray-400">Privé</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-gray-500">
+                                <td class="px-4 py-2 text-gray-500">
                                     {{ $project->updated_at?->diffForHumans() }}
                                 </td>
-                                <td class="px-2 py-3 text-right">
+                                <td class="px-2 py-2 text-right">
                                     <div class="relative inline-block" @click.away="menuOpen = (menuOpen === {{ $project->id }} ? null : menuOpen)">
                                         <button type="button"
                                                 @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})"
@@ -139,25 +139,25 @@
                     <table class="min-w-full text-sm" data-testid="public-projects-table">
                         <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
                             <tr>
-                                <th class="px-4 py-3 text-left font-medium">Naam</th>
-                                <th class="px-4 py-3 text-left font-medium">Eigenaar</th>
-                                <th class="px-4 py-3 text-left font-medium">Toegang</th>
-                                <th class="px-4 py-3 text-left font-medium">Gewijzigd</th>
+                                <th class="px-4 py-2 text-left font-medium">Naam</th>
+                                <th class="px-4 py-2 text-left font-medium">Eigenaar</th>
+                                <th class="px-4 py-2 text-left font-medium">Toegang</th>
+                                <th class="px-4 py-2 text-left font-medium">Gewijzigd</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($publicProjects as $project)
                                 <tr class="hover:bg-gray-50" data-testid="public-project-row">
-                                    <td class="px-4 py-3">
-                                        <a href="{{ route('editor', $project) }}" class="font-medium text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
+                                    <td class="px-4 py-2">
+                                        <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600">{{ $project->owner->name }}</td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-2 text-gray-600">{{ $project->owner->name }}</td>
+                                    <td class="px-4 py-2">
                                         <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700">
                                             {{ $project->public_permission === 'write' ? 'lezen+schrijven' : 'alleen lezen' }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-500">{{ $project->updated_at?->diffForHumans() }}</td>
+                                    <td class="px-4 py-2 text-gray-500">{{ $project->updated_at?->diffForHumans() }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

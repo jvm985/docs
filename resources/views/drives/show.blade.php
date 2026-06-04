@@ -93,21 +93,21 @@
             <table class="min-w-full text-sm" data-testid="drive-projects-table">
                 <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
                     <tr>
-                        <th class="px-4 py-3 text-left font-medium">Naam</th>
-                        <th class="px-4 py-3 text-left font-medium">Aangemaakt door</th>
-                        <th class="px-4 py-3 text-left font-medium">Gewijzigd</th>
+                        <th class="px-4 py-2 text-left font-medium">Naam</th>
+                        <th class="px-4 py-2 text-left font-medium">Aangemaakt door</th>
+                        <th class="px-4 py-2 text-left font-medium">Gewijzigd</th>
                         <th class="w-12 px-2 py-3"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" x-data="{ menuOpen: null }">
                     @foreach($projects as $project)
                         <tr class="hover:bg-gray-50" data-testid="drive-project-row">
-                            <td class="px-4 py-3">
-                                <a href="{{ route('editor', $project) }}" class="font-medium text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
+                            <td class="px-4 py-2">
+                                <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
                             </td>
-                            <td class="px-4 py-3 text-gray-600">{{ $project->owner->name }}</td>
-                            <td class="px-4 py-3 text-gray-500">{{ $project->updated_at?->diffForHumans() }}</td>
-                            <td class="px-2 py-3 text-right">
+                            <td class="px-4 py-2 text-gray-600">{{ $project->owner->name }}</td>
+                            <td class="px-4 py-2 text-gray-500">{{ $project->updated_at?->diffForHumans() }}</td>
+                            <td class="px-2 py-2 text-right">
                                 @if($canWrite)
                                     <div class="relative inline-block" @click.away="menuOpen = (menuOpen === {{ $project->id }} ? null : menuOpen)">
                                         <button type="button" @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})" class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Acties">

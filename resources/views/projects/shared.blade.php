@@ -21,7 +21,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($projects as $project)
-                        <tr class="hover:bg-gray-50" data-testid="shared-project-row">
+                        <tr class="align-middle hover:bg-gray-50" data-testid="shared-project-row">
                             <td class="px-4 py-2">
                                 <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
                             </td>

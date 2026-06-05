@@ -28,7 +28,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @foreach($projects as $project)
-                            <tr class="hover:bg-gray-50" data-testid="project-row">
+                            <tr class="align-middle hover:bg-gray-50" data-testid="project-row">
                                 <td class="px-4 py-2">
                                     <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600" data-testid="project-link">
                                         {{ $project->name }}
@@ -55,7 +55,7 @@
                                     <div class="relative inline-block" @click.away="menuOpen = (menuOpen === {{ $project->id }} ? null : menuOpen)">
                                         <button type="button"
                                                 @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})"
-                                                class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                                class="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                                                 aria-label="Acties"
                                                 data-testid="project-actions">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
@@ -147,7 +147,7 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @foreach($publicProjects as $project)
-                                <tr class="hover:bg-gray-50" data-testid="public-project-row">
+                                <tr class="align-middle hover:bg-gray-50" data-testid="public-project-row">
                                     <td class="px-4 py-2">
                                         <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
                                     </td>

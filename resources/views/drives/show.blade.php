@@ -101,7 +101,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100" x-data="{ menuOpen: null }">
                     @foreach($projects as $project)
-                        <tr class="hover:bg-gray-50" data-testid="drive-project-row">
+                        <tr class="align-middle hover:bg-gray-50" data-testid="drive-project-row">
                             <td class="px-4 py-2">
                                 <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
                             </td>
@@ -110,7 +110,7 @@
                             <td class="px-2 py-2 text-right">
                                 @if($canWrite)
                                     <div class="relative inline-block" @click.away="menuOpen = (menuOpen === {{ $project->id }} ? null : menuOpen)">
-                                        <button type="button" @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})" class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Acties">
+                                        <button type="button" @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})" class="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Acties">
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
                                         </button>
                                         <div x-show="menuOpen === {{ $project->id }}" x-cloak class="absolute right-0 top-7 z-20 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg">

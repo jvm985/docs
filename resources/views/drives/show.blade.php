@@ -5,12 +5,12 @@
     <x-slot:actions>
         <div class="flex items-center gap-2" x-data="{ showCreate: false, showMembers: false, showRename: false }">
             @if($canWrite)
-                <button type="button" @click="showCreate = true" data-testid="new-project-button" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600">+ Nieuw project</button>
+                <button type="button" @click="showCreate = true" data-testid="new-project-button" class="rounded-lg bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600">+ Nieuw project</button>
             @endif
             @if($isOwner)
                 <button type="button" @click="showMembers = true" data-testid="manage-members-button" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">Leden</button>
                 <div class="relative" x-data="{ open: false }" @click.away="open = false">
-                    <button type="button" @click="open = !open" class="rounded-lg border border-gray-300 px-2 py-2 text-gray-500 hover:bg-gray-100" aria-label="Drive acties">
+                    <button type="button" @click="open = !open" class="rounded-lg border border-gray-300 px-2 py-1.5 text-gray-500 hover:bg-gray-100" aria-label="Drive acties">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
                     </button>
                     <div x-show="open" x-cloak class="absolute right-0 top-10 z-20 w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg">
@@ -90,24 +90,24 @@
         </div>
     @else
         <div class="rounded-xl border border-gray-200 bg-white">
-            <table class="min-w-full text-sm" data-testid="drive-projects-table">
+            <table class="min-w-full text-base" data-testid="drive-projects-table">
                 <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
                     <tr>
-                        <th class="px-4 py-2 text-left font-medium">Naam</th>
-                        <th class="px-4 py-2 text-left font-medium">Aangemaakt door</th>
-                        <th class="px-4 py-2 text-left font-medium">Gewijzigd</th>
+                        <th class="px-4 py-1.5 text-left font-medium">Naam</th>
+                        <th class="px-4 py-1.5 text-left font-medium">Aangemaakt door</th>
+                        <th class="px-4 py-1.5 text-left font-medium">Gewijzigd</th>
                         <th class="w-12 px-2 py-3"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100" x-data="{ menuOpen: null }">
                     @foreach($projects as $project)
                         <tr class="align-middle hover:bg-gray-50" data-testid="drive-project-row">
-                            <td class="px-4 py-2">
+                            <td class="px-4 py-1.5">
                                 <a href="{{ route('editor', $project) }}" class="text-gray-900 hover:text-amber-600">{{ $project->name }}</a>
                             </td>
-                            <td class="px-4 py-2 text-gray-600">{{ $project->owner->name }}</td>
-                            <td class="px-4 py-2 text-gray-500">{{ $project->updated_at?->diffForHumans() }}</td>
-                            <td class="px-2 py-2 text-right">
+                            <td class="px-4 py-1.5 text-gray-600">{{ $project->owner->name }}</td>
+                            <td class="px-4 py-1.5 text-gray-500">{{ $project->updated_at?->diffForHumans() }}</td>
+                            <td class="px-2 py-1.5 text-right">
                                 @if($canWrite)
                                     <div class="relative inline-block" @click.away="menuOpen = (menuOpen === {{ $project->id }} ? null : menuOpen)">
                                         <button type="button" @click="menuOpen = (menuOpen === {{ $project->id }} ? null : {{ $project->id }})" class="rounded p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Acties">

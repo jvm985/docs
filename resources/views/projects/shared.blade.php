@@ -5,16 +5,16 @@
             <p class="text-sm text-gray-500">Er zijn nog geen projecten met jou gedeeld.</p>
         </div>
     @else
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div class="overflow-hidden overflow-hidden rounded border border-gray-200 bg-white">
             <table class="min-w-full text-base" data-testid="shared-projects-table">
-                <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                <thead class="border-b border-gray-200 bg-white text-sm text-gray-700">
                     <tr>
-                        <th class="px-4 py-1.5 text-left font-medium">
+                        <th class="px-4 py-2 text-left font-semibold">
                             <x-sort-header key="name" label="Naam" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                         </th>
-                        <th class="px-4 py-1.5 text-left font-medium">Eigenaar</th>
-                        <th class="px-4 py-1.5 text-left font-medium">Toegang</th>
-                        <th class="px-4 py-1.5 text-left font-medium">
+                        <th class="px-4 py-2 text-left font-semibold">Eigenaar</th>
+                        <th class="px-4 py-2 text-left font-semibold">Toegang</th>
+                        <th class="px-4 py-2 text-left font-semibold">
                             <x-sort-header key="updated" label="Gewijzigd" :activeKey="$sortKey ?? null" :activeDir="$sortDir ?? 'desc'" />
                         </th>
                     </tr>

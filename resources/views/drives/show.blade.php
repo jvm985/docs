@@ -89,13 +89,13 @@
             <p class="text-sm text-gray-500">Nog geen projecten in deze drive.</p>
         </div>
     @else
-        <div class="rounded-xl border border-gray-200 bg-white">
+        <div class="overflow-hidden rounded border border-gray-200 bg-white">
             <table class="min-w-full text-base" data-testid="drive-projects-table">
-                <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
+                <thead class="border-b border-gray-200 bg-white text-sm text-gray-700">
                     <tr>
-                        <th class="px-4 py-1.5 text-left font-medium">Naam</th>
-                        <th class="px-4 py-1.5 text-left font-medium">Aangemaakt door</th>
-                        <th class="px-4 py-1.5 text-left font-medium">Gewijzigd</th>
+                        <th class="px-4 py-2 text-left font-semibold">Naam</th>
+                        <th class="px-4 py-2 text-left font-semibold">Aangemaakt door</th>
+                        <th class="px-4 py-2 text-left font-semibold">Gewijzigd</th>
                         <th class="w-12 px-2 py-3"></th>
                     </tr>
                 </thead>

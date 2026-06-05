@@ -9,15 +9,15 @@
         $myDrives = $owned->concat($member)->unique('id')->sortBy('name')->values();
     }
 
-    // De active-stijl voor sidebar-nav: groene tekst zonder achtergrond.
-    // Overleaf-stijl: kleur communiceert active, geen pill.
+    // Tekst-only nav, Overleaf-stijl: actief = donker gekleurd + bold,
+    // inactief = neutraal slate. Geen background, geen icoon.
     $navLink = fn(bool $active) => $active
-        ? 'flex items-center gap-2 rounded-md px-3 py-2 font-semibold text-amber-700'
-        : 'flex items-center gap-2 rounded-md px-3 py-2 text-gray-700 hover:bg-gray-50';
+        ? 'block rounded px-3 py-1.5 font-semibold text-amber-700'
+        : 'block rounded px-3 py-1.5 text-gray-700 hover:bg-gray-100';
 @endphp
 
-<aside class="w-64 shrink-0 border-r border-gray-200 bg-white">
-    <div class="px-5 pt-6 pb-4">
+<aside class="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white">
+    <div class="px-4 pt-5 pb-4">
         <button type="button"
                 x-data
                 @click="$dispatch('open-create-project')"
@@ -27,80 +27,53 @@
         </button>
     </div>
 
-    <nav class="px-3 pb-6 text-sm">
-        <a href="{{ route('projects.index') }}"
-           data-testid="nav-my-drive"
-           class="{{ $navLink($scope === 'my-drive') }}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H3z"/></svg>
-            <span>Mijn Drive</span>
+    <nav class="flex-1 px-3 pb-3 text-sm">
+        <a href="{{ route('projects.index') }}" data-testid="nav-my-drive" class="{{ $navLink($scope === 'my-drive') }}">
+            Mijn projecten
         </a>
-
-        <a href="{{ route('projects.shared') }}"
-           data-testid="nav-shared-with-me"
-           class="mt-1 {{ $navLink($scope === 'shared') }}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 8l4 4-4 4M7 8l-4 4 4 4M14 4l-4 16"/></svg>
-            <span>Met mij gedeeld</span>
+        <a href="{{ route('projects.shared') }}" data-testid="nav-shared-with-me" class="{{ $navLink($scope === 'shared') }}">
+            Met mij gedeeld
         </a>
-
-        <div class="mt-1">
-            <a href="{{ route('drives.index') }}"
-               data-testid="nav-shared-drives"
-               class="{{ $navLink($scope === 'shared-drives' && ! $activeDriveId) }}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4zm0 5l9 4 9-4M3 17l9 4 9-4"/></svg>
-                <span>Gedeelde drives</span>
-            </a>
-            @if($myDrives->isNotEmpty())
-                <ul class="ml-7 mt-1 space-y-0.5 border-l border-gray-200 pl-2">
-                    @foreach($myDrives as $d)
-                        <li>
-                            <a href="{{ route('drives.show', $d) }}"
-                               class="block truncate rounded-md px-2 py-1 text-xs {{ $activeDriveId === $d->id ? 'font-semibold text-amber-700' : 'text-gray-600 hover:bg-gray-50' }}"
-                               data-testid="nav-drive-{{ $d->id }}">
-                                {{ $d->name }}
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
-            @endif
-        </div>
-
-        <a href="{{ route('trash.index') }}"
-           data-testid="nav-trash"
-           class="mt-1 {{ $navLink($scope === 'trash') }}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-            <span>Prullenbak</span>
+        <a href="{{ route('drives.index') }}" data-testid="nav-shared-drives" class="{{ $navLink($scope === 'shared-drives' && ! $activeDriveId) }}">
+            Gedeelde drives
+        </a>
+        @if($myDrives->isNotEmpty())
+            <ul class="ml-3 mt-1 space-y-0.5 border-l border-gray-200 pl-2">
+                @foreach($myDrives as $d)
+                    <li>
+                        <a href="{{ route('drives.show', $d) }}"
+                           class="block truncate rounded px-2 py-1 text-xs {{ $activeDriveId === $d->id ? 'font-semibold text-amber-700' : 'text-gray-600 hover:bg-gray-100' }}"
+                           data-testid="nav-drive-{{ $d->id }}">
+                            {{ $d->name }}
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+        <a href="{{ route('trash.index') }}" data-testid="nav-trash" class="{{ $navLink($scope === 'trash') }}">
+            Prullenbak
         </a>
 
         @if($user?->isAdmin())
-            <div class="mt-6 border-t border-gray-200 pt-3">
-                <a href="{{ route('admin.users') }}"
-                   data-testid="nav-admin-users"
-                   class="{{ $navLink($scope === 'admin-users') }}">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>
-                    <span>Beheer rollen</span>
+            <div class="mt-5 pt-3">
+                <p class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Admin</p>
+                <a href="{{ route('admin.users') }}" data-testid="nav-admin-users" class="{{ $navLink($scope === 'admin-users') }}">
+                    Beheer rollen
                 </a>
-                <a href="{{ route('admin.activity') }}"
-                   data-testid="nav-admin-activity"
-                   class="mt-1 {{ $navLink($scope === 'admin-activity') }}">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-                    <span>Activiteit</span>
+                <a href="{{ route('admin.activity') }}" data-testid="nav-admin-activity" class="{{ $navLink($scope === 'admin-activity') }}">
+                    Activiteit
                 </a>
-                <a href="{{ route('admin.projects') }}"
-                   data-testid="nav-admin-projects"
-                   class="mt-1 {{ $navLink($scope === 'admin-projects') }}">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H3z"/></svg>
-                    <span>Alle projecten</span>
+                <a href="{{ route('admin.projects') }}" data-testid="nav-admin-projects" class="{{ $navLink($scope === 'admin-projects') }}">
+                    Alle projecten
                 </a>
             </div>
         @endif
-
-        <div class="mt-6 border-t border-gray-200 pt-3">
-            <a href="{{ route('info') }}"
-               data-testid="nav-info"
-               class="{{ $navLink(($scope ?? '') === 'info') }}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01"/></svg>
-                <span>Over Docs</span>
-            </a>
-        </div>
     </nav>
+
+    <div class="mt-auto flex items-center justify-between border-t border-gray-100 px-4 py-4 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+        <a href="{{ route('info') }}" data-testid="nav-info" class="hover:text-gray-600">Atheneum Kapellen</a>
+        <a href="{{ route('info') }}" title="Over Docs" class="text-gray-400 hover:text-gray-600">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>
+        </a>
+    </div>
 </aside>
